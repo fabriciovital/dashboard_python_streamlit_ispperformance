@@ -1,41 +1,98 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import psycopg2
 
+# Função para estabelecer a conexão com o banco de dados PostgreSQL
+def get_connection():
+    conn = psycopg2.connect(
+        host="127.0.0.1",
+        database="postgres",
+        user="fabricio",
+        password="kr8c4s%w"
+    )
+    return conn
+
+# Função para buscar os dados do PostgreSQL
+def fetch_data(query):
+    conn = get_connection()
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
+
+# Define a configuração da página no Streamlit
+st.set_page_config(page_title="ISQ Performance", page_icon="🌍", layout="wide")
+
+# Define o título da página
 st.title('ISQ Performance')
 
-DATE_COLUMN = 'date/time'
-DATA_URL = ('https://s3-us-west-2.amazonaws.com/'
-         'streamlit-demo-data/uber-raw-data-sep14.csv.gz')
+# Função principal do Streamlit
+def main():
+    st.title("Análise de Atendimentos")
 
-def load_data(nrows):
-    data = pd.read_csv(DATA_URL, nrows=nrows)
-    lowercase = lambda x: str(x).lower()
-    data.rename(lowercase, axis='columns', inplace=True)
-    data[DATE_COLUMN] = pd.to_datetime(data[DATE_COLUMN])
-    return data
+    # Consulta para buscar estados da tabela dim_cidade
+    query_estados = "SELECT sk_cidade, UF FROM dim_cidade ORDER BY UF;"
+    df_estados = fetch_data(query_estados)
 
-# Create a text element and let the reader know the data is loading.
-data_load_state = st.text('Carregando os dados...')
-# Load 10,000 rows of data into the dataframe.
-data = load_data(10000)
-# Notify the reader that the data was successfully loaded.
-data_load_state.text('Carregando os dados...pronto!')
+    # Configura os filtros na barra lateral para estado
+    estados = st.sidebar.multiselect(
+        "Selecione Estado",
+        options=df_estados["uf"].unique(),
+        default=df_estados["uf"].unique(),
+    )
 
-@st.cache_data
-def load_data(nrows):
-    data_load_state.text("Done! (using st.cache_data)")
+    # Consulta para buscar cidades da tabela dim_cidade com base nos estados selecionados
+    if estados:
+        query_cidades = f"""
+        SELECT DISTINCT Cidade 
+        FROM dim_cidade 
+        WHERE UF IN ({','.join([f"'{estado}'" for estado in estados])}) 
+        ORDER BY Cidade;
+        """
+    else:
+        query_cidades = """
+        SELECT DISTINCT Cidade 
+        FROM dim_cidade 
+        ORDER BY Cidade;
+        """
+    df_cidades = fetch_data(query_cidades)
 
-st.subheader('Raw data')
-st.write(data)
+    # Configura os filtros na barra lateral para cidade
+    cidades = st.sidebar.multiselect(
+        "Selecione Cidade",
+        options=df_cidades["cidade"].unique(),
+        default=df_cidades["cidade"].unique(),
+    )
 
+    # Consulta para buscar filiais com base nas cidades selecionadas
+    if cidades:
+        query_filiais = """
+        SELECT DISTINCT Filial 
+        FROM dim_filial 
+        WHERE cidade IN ({}) 
+        ORDER BY Filial;
+        """.format(",".join(["'{}'".format(cidade.replace("'", "''")) for cidade in cidades]))
+    else:
+        query_filiais = """
+        SELECT DISTINCT Filial 
+        FROM dim_filial 
+        ORDER BY Filial;
+        """
+    df_filiais = fetch_data(query_filiais)
 
-st.subheader('Number of pickups by hour')
-hist_values = np.histogram(
-    data[DATE_COLUMN].dt.hour, bins=24, range=(0,24))[0]
+    # Configura os filtros na barra lateral para filial
+    filiais = st.sidebar.multiselect(
+        "Selecione Filial",
+        options=df_filiais["filial"].unique(),
+        default=df_filiais["filial"].unique(),
+    )
 
-st.bar_chart(hist_values)
+    # Exibição dos dados filtrados
+    st.write("Estados selecionados:", estados)
+    st.write("Cidades selecionadas:", cidades)
+    st.write("Filiais selecionadas:", filiais)
 
-st.subheader('Map of all pickups')
+    # Aqui você pode adicionar consultas adicionais ou exibir gráficos/tabelas com base nas seleções feitas
+    # ...
 
-st.map(data)
+if __name__ == "__main__":
+    main()
