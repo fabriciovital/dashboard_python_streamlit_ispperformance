@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import psycopg2
-import matplotlib.pyplot as plt
 import altair as alt
 
 # Função para estabelecer a conexão com o banco de dados PostgreSQL
@@ -43,7 +42,7 @@ def login(username, password):
     return None, None
 
 # Define a configuração da página no Streamlit
-st.set_page_config(page_title="ISP Performance", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="ISP Performance - Decisões inteligentes, baseadas em dados confiáveis para o sucesso do seu provedor!", page_icon="📊", layout="wide")
 
 # Load Style CSS
 with open('style.css') as f:
@@ -595,25 +594,28 @@ def app_interface():
         st.session_state.expander_state = st.session_state.expander_state
 
 ########################################################################################################################
+
     # Titulo da sub-pagina
-    st.title("Análise de SLA")
+    st.title("Análise de SLA dos Atendimentos")
 
     with st.expander("SLA de Atendimentos por Ano/Mês", expanded=st.session_state.expander_state):
 
-        # TItulo do gráfico
+        # Título do gráfico
         st.subheader("SLA de Atendimentos por Ano/Mês")
-            
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        sla_ano_mes_altair = df_atendimentos.groupby('nr_ano_nr_mes_finalizacao')['id'].nunique().reset_index(name='Contagem')
+
+        # Calcular a média do percentual de SLA por Ano/Mês (ajustando o valor para percentual)
+        sla_ano_mes_altair = df_atendimentos.groupby('nr_ano_nr_mes_finalizacao')['sla'].mean().reset_index(name='Média SLA (%)')
+        sla_ano_mes_altair['Média SLA (%)'] = sla_ano_mes_altair['Média SLA (%)'] / 100
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(sla_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('nr_ano_nr_mes_finalizacao:O', axis=alt.Axis(labelAngle=0, title='Ano/Mês'), title='Ano/Mês')  # Aqui desativamos o título do eixo x
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title=None, format='.2%')),  # Porcentagem no eixo y
+            x=alt.X('nr_ano_nr_mes_finalizacao:O', axis=alt.Axis(labelAngle=0, title='Ano/Mês'), title='Ano/Mês')  # Desativar o título do eixo x
         ).properties(
             width=1400,
             height=400
         )
+
         # Adiciona rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
             align='center',
@@ -621,237 +623,170 @@ def app_interface():
             dy=-10,  # Deslocamento vertical
             color='white'  # Cor branca para o texto
         ).encode(
-            text='Contagem:Q'
+            text=alt.Text('Média SLA (%):Q', format='.2%')
         )
 
         st.altair_chart(chart + text)
 
-    # Adicionando uma área de expansão
     with st.expander("SLA de Atendimentos por Estado", expanded=st.session_state.expander_state):
-
-        # Titulo do gráfico        
+        # Título do gráfico        
         st.subheader("SLA de Atendimentos por Estado")
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        sla_estado_altair = df_atendimentos.groupby('uf')['id'].nunique().reset_index(name='Contagem')
+        # Calcular a média do percentual de SLA por Estado
+        sla_estado_altair = df_atendimentos.groupby('uf')['sla'].mean().reset_index(name='Média SLA (%)')
+        sla_estado_altair['Média SLA (%)'] = sla_estado_altair['Média SLA (%)'] / 100
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(sla_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('uf:O', axis=alt.Axis(labelAngle=0, title='Estado'), title='Estado')  # Aqui desativamos o título do eixo x
-        ).properties(
-            width=1400,
-            height=400
-        )
-        # Adiciona rótulos de valores no topo das barras com cor branca
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title=None, format='.2%')),  # Porcentagem no eixo y
+            x=alt.X('uf:O', axis=alt.Axis(labelAngle=0, title='Estado'), title='Estado')  # Título do eixo x
+        ).properties(width=1400, height=400)
+
+        # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
+            align='center', baseline='middle', dy=-10, color='white'
+        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
 
         st.altair_chart(chart + text)
 
-    # Adicionando uma área de expansão
     with st.expander("SLA de Atendimentos por Cidade", expanded=st.session_state.expander_state):
-
-        # Titulo do gráfico        
+        # Título do gráfico        
         st.subheader("SLA de Atendimentos por Cidade")
-
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        sla_estado_altair = df_atendimentos.groupby('cidade')['id'].nunique().reset_index(name='Contagem')
+        # Calcular a média do percentual de SLA por Cidade
+        sla_cidade_altair = df_atendimentos.groupby('cidade')['sla'].mean().reset_index(name='Média SLA (%)')
+        sla_cidade_altair['Média SLA (%)'] = sla_cidade_altair['Média SLA (%)'] / 100
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(sla_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), title='Cidade')  # Aqui desativamos o título do eixo x
-        ).properties(
-            width=1400,
-            height=400
-        )
-        # Adiciona rótulos de valores no topo das barras com cor branca
+        chart = alt.Chart(sla_cidade_altair).mark_bar().encode(
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title=None, format='.2%')),  # Porcentagem no eixo y
+            x=alt.X('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), title='Cidade')  # Título do eixo x
+        ).properties(width=1400, height=400)
+
+        # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
+            align='center', baseline='middle', dy=-10, color='white'
+        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
 
         st.altair_chart(chart + text)
 
-    # Adicionando uma área de expansão
     with st.expander("SLA de Atendimentos por Filial", expanded=st.session_state.expander_state):
-
-        # Titulo do gráfico        
+        # Título do gráfico        
         st.subheader("SLA de Atendimentos por Filial")
-
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        sla_estado_altair = df_atendimentos.groupby('filial')['id'].nunique().reset_index(name='Contagem')
+        # Calcular a média do percentual de SLA por Filial
+        sla_filial_altair = df_atendimentos.groupby('filial')['sla'].mean().reset_index(name='Média SLA (%)')
+        sla_filial_altair['Média SLA (%)'] = sla_filial_altair['Média SLA (%)'] / 100
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(sla_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), title='Filial')  # Aqui desativamos o título do eixo x
-        ).properties(
-            width=1400,
-            height=400
-        )
-        # Adiciona rótulos de valores no topo das barras com cor branca
+        chart = alt.Chart(sla_filial_altair).mark_bar().encode(
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title=None, format='.2%')),  # Porcentagem no eixo y
+            x=alt.X('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), title='Filial')  # Título do eixo x
+        ).properties(width=1400, height=400)
+
+        # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
+            align='center', baseline='middle', dy=-10, color='white'
+        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
 
         st.altair_chart(chart + text)
 
     with st.expander("SLA de Atendimentos por Setor", expanded=st.session_state.expander_state):
-        # Titulo do gráfico        
+        # Título do gráfico        
         st.subheader("SLA de Atendimentos por Setor")
-
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        sla_estado_altair = df_atendimentos.groupby('setor')['id'].nunique().reset_index(name='Contagem')
+        # Calcular a média do percentual de SLA por Setor
+        sla_setor_altair = df_atendimentos.groupby('setor')['sla'].mean().reset_index(name='Média SLA (%)')
+        sla_setor_altair['Média SLA (%)'] = sla_setor_altair['Média SLA (%)'] / 100
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(sla_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('setor:O', axis=alt.Axis(title='Setor', labelAngle=0, labelFontSize=10), title='Setor')  # Adicionei um título para o eixo x e ajustei o ângulo e o tamanho da fonte dos rótulos
-        ).properties(
-            width=1400,  # Reduzi a largura do gráfico
-            height=400
-        )
+        chart = alt.Chart(sla_setor_altair).mark_bar().encode(
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title=None, format='.2%')),  # Porcentagem no eixo y
+            x=alt.X('setor:O', axis=alt.Axis(labelAngle=0, title='Setor', labelFontSize=10), title='Setor')  # Título do eixo x
+        ).properties(width=1400, height=400)
 
-        # Adiciona rótulos de valores no topo das barras com cor branca
+        # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
+            align='center', baseline='middle', dy=-10, color='white'
+        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
 
         st.altair_chart(chart + text)
 
     with st.expander("SLA de Atendimentos por Colaborador", expanded=st.session_state.expander_state):
-        # Titulo do gráfico        
+        # Título do gráfico        
         st.subheader("SLA de Atendimentos por Colaborador")
-        
         # Extrair o primeiro nome de cada colaborador
         df_atendimentos['primeiro_nome'] = df_atendimentos['colaborador'].apply(lambda x: x.split()[0])
-
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        sla_estado_altair = df_atendimentos.groupby('primeiro_nome')['id'].nunique().reset_index(name='Contagem')
+        # Calcular a média do percentual de SLA por Colaborador
+        sla_colaborador_altair = df_atendimentos.groupby('primeiro_nome')['sla'].mean().reset_index(name='Média SLA (%)')
+        sla_colaborador_altair['Média SLA (%)'] = sla_colaborador_altair['Média SLA (%)'] / 100
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(sla_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('primeiro_nome:O', axis=alt.Axis(title='Colaborador', labelAngle=0, labelFontSize=10), title='Colaborador')  # Adicionei um título para o eixo x e ajustei o ângulo e o tamanho da fonte dos rótulos
-        ).properties(
-            width=1400,  # Reduzi a largura do gráfico
-            height=400
-        )
+        chart = alt.Chart(sla_colaborador_altair).mark_bar().encode(
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title=None, format='.2%')),  # Porcentagem no eixo y
+            x=alt.X('primeiro_nome:O', axis=alt.Axis(labelAngle=0, title='Colaborador', labelFontSize=10), title='Colaborador')  # Título do eixo x
+        ).properties(width=1400, height=400)
 
-        # Adiciona rótulos de valores no topo das barras com cor branca
+        # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
+            align='center', baseline='middle', dy=-10, color='white'
+        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
 
         st.altair_chart(chart + text)
 
     with st.expander("SLA de Atendimentos por Assunto", expanded=st.session_state.expander_state):
-        # Titulo do gráfico        
+        # Título do gráfico        
         st.subheader("SLA de Atendimentos por Assunto")
-
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        sla_estado_altair = df_atendimentos.groupby('assunto')['id'].nunique().reset_index(name='Contagem')
+        # Calcular a média do percentual de SLA por Assunto
+        sla_assunto_altair = df_atendimentos.groupby('assunto')['sla'].mean().reset_index(name='Média SLA (%)')
+        sla_assunto_altair['Média SLA (%)'] = sla_assunto_altair['Média SLA (%)'] / 100
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(sla_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('assunto:O', axis=alt.Axis(title='Assunto', labelAngle=0, labelFontSize=10), title='Assunto')  # Adicionei um título para o eixo x e ajustei o ângulo e o tamanho da fonte dos rótulos
-        ).properties(
-            width=1400,  # Reduzi a largura do gráfico
-            height=400
-        )
+        chart = alt.Chart(sla_assunto_altair).mark_bar().encode(
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title=None, format='.2%')),  # Porcentagem no eixo y
+            x=alt.X('assunto:O', axis=alt.Axis(labelAngle=0, title='Assunto', labelFontSize=10), title='Assunto')  # Título do eixo x
+        ).properties(width=1400, height=400)
 
-        # Adiciona rótulos de valores no topo das barras com cor branca
+        # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
+            align='center', baseline='middle', dy=-10, color='white'
+        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
 
         st.altair_chart(chart + text)
 
     with st.expander("SLA de Atendimentos por Tipo Atendimento", expanded=st.session_state.expander_state):
-        # Titulo do gráfico        
+        # Título do gráfico        
         st.subheader("SLA de Atendimentos por Tipo Atendimento")
-
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        sla_estado_altair = df_atendimentos.groupby('tipo_atendimento')['id'].nunique().reset_index(name='Contagem')
+        # Calcular a média do percentual de SLA por Tipo Atendimento
+        sla_tipo_atendimento_altair = df_atendimentos.groupby('tipo_atendimento')['sla'].mean().reset_index(name='Média SLA (%)')
+        sla_tipo_atendimento_altair['Média SLA (%)'] = sla_tipo_atendimento_altair['Média SLA (%)'] / 100
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(sla_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('tipo_atendimento:O', axis=alt.Axis(title='Tipo Atendimento', labelAngle=0, labelFontSize=10), title='Tipo Atendimento')  # Adicionei um título para o eixo x e ajustei o ângulo e o tamanho da fonte dos rótulos
-        ).properties(
-            width=1400,  # Reduzi a largura do gráfico
-            height=400
-        )
+        chart = alt.Chart(sla_tipo_atendimento_altair).mark_bar().encode(
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title=None, format='.2%')),  # Porcentagem no eixo y
+            x=alt.X('tipo_atendimento:O', axis=alt.Axis(labelAngle=0, title='Tipo Atendimento', labelFontSize=10), title='Tipo Atendimento')  # Título do eixo x
+        ).properties(width=1400, height=400)
 
-        # Adiciona rótulos de valores no topo das barras com cor branca
+        # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
+            align='center', baseline='middle', dy=-10, color='white'
+        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
 
         st.altair_chart(chart + text)
 
     with st.expander("SLA de Atendimentos por Prioridade", expanded=st.session_state.expander_state):
-        # Titulo do gráfico        
+        # Título do gráfico        
         st.subheader("SLA de Atendimentos por Prioridade")
-
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        sla_estado_altair = df_atendimentos.groupby('prioridade')['id'].nunique().reset_index(name='Contagem')
+        # Calcular a média do percentual de SLA por Prioridade
+        sla_prioridade_altair = df_atendimentos.groupby('prioridade')['sla'].mean().reset_index(name='Média SLA (%)')
+        sla_prioridade_altair['Média SLA (%)'] = sla_prioridade_altair['Média SLA (%)'] / 100
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(sla_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('prioridade:O', axis=alt.Axis(title='Prioridade', labelAngle=0, labelFontSize=10), title='Prioridade')  # Adicionei um título para o eixo x e ajustei o ângulo e o tamanho da fonte dos rótulos
-        ).properties(
-            width=1400,  # Reduzi a largura do gráfico
-            height=400
-        )
+        chart = alt.Chart(sla_prioridade_altair).mark_bar().encode(
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title=None, format='.2%')),  # Porcentagem no eixo y
+            x=alt.X('prioridade:O', axis=alt.Axis(labelAngle=0, title='Prioridade', labelFontSize=10), title='Prioridade')  # Título do eixo x
+        ).properties(width=1400, height=400)
 
-        # Adiciona rótulos de valores no topo das barras com cor branca
+        # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
+            align='center', baseline='middle', dy=-10, color='white'
+        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
 
         st.altair_chart(chart + text)
 
@@ -861,270 +796,149 @@ def app_interface():
 
 
 
-########################################################################################################################3
-    # Titulo da sub-pagina
-    st.title("Análise de Tempo Médio")
+########################################################################################################################
 
+    # Titulo da sub-pagina
+    st.title("Análise de Tempo Médio dos Atendimentos")
+
+    # Adicionando uma área de expansão para o Tempo Médio de Atendimento por Ano/Mês
     with st.expander("Tempo Médio de Atendimento por Ano/Mês", expanded=st.session_state.expander_state):
 
-        # TItulo do gráfico
-        st.subheader("Tempo Médio de Atendimento por Ano/Mês")
+            st.subheader("Tempo Médio de Atendimento por Ano/Mês")
+
+            # Calcular o tempo de atendimento em cada linha
+            df_atendimentos['data_hora_abertura'] = pd.to_datetime(df_atendimentos['data_abertura'].astype(str) + ' ' + df_atendimentos['hora_abertura'].astype(str))
+            df_atendimentos['data_hora_finalizacao'] = pd.to_datetime(df_atendimentos['data_finalizacao'].astype(str) + ' ' + df_atendimentos['hora_finalizacao'].astype(str))
+
+            # Converter as datas e horas de abertura e finalização de volta para Timestamp
+            df_atendimentos['data_hora_abertura'] = pd.to_datetime(df_atendimentos['data_hora_abertura'])
+            df_atendimentos['data_hora_finalizacao'] = pd.to_datetime(df_atendimentos['data_hora_finalizacao'])
+
+            # Calcular o tempo de atendimento em horas
+            df_atendimentos['tempo_atendimento'] = (df_atendimentos['data_hora_finalizacao'] - df_atendimentos['data_hora_abertura']).dt.total_seconds() / 3600
             
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        tempo_medio_ano_mes_altair = df_atendimentos.groupby('nr_ano_nr_mes_finalizacao')['id'].nunique().reset_index(name='Contagem')
+            # Agregar os dados para calcular o tempo médio de atendimento por ano/mês
+            tempo_medio_ano_mes = df_atendimentos.groupby('nr_ano_nr_mes_finalizacao')['tempo_atendimento'].mean().reset_index()
 
-        # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(tempo_medio_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('nr_ano_nr_mes_finalizacao:O', axis=alt.Axis(labelAngle=0, title='Ano/Mês'), title='Ano/Mês')  # Aqui desativamos o título do eixo x
-        ).properties(
-            width=1400,
-            height=400
-        )
-        # Adiciona rótulos de valores no topo das barras com cor branca
-        text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
+            # Converter o tempo médio de atendimento para o formato HH:MM:SS
+            tempo_medio_ano_mes['tempo_atendimento'] = pd.to_datetime(tempo_medio_ano_mes['tempo_atendimento'], unit='h').dt.strftime('%H:%M:%S')
 
-        st.altair_chart(chart + text)
+             # Criar o gráfico usando Altair com barras horizontais
+            chart = alt.Chart(tempo_medio_ano_mes).mark_bar().encode(
+                y=alt.Y('tempo_atendimento:N', axis=alt.Axis(title=None)),
+                x=alt.X('nr_ano_nr_mes_finalizacao:O', axis=alt.Axis(labelAngle=0, title='Ano/Mês'), title='Ano/Mês')
+            ).properties(
+                width=1400,
+                height=400
+            )
 
-    # Adicionando uma área de expansão
-    with st.expander("Tempo Médio de Atendimento por Estado", expanded=st.session_state.expander_state):
+            chart_text = alt.Chart(tempo_medio_ano_mes).mark_text(
+                align='left',
+                baseline='middle',
+                color='white',
+                dx=5,  # Deslocamento para a direita
+            ).encode(
+                x=alt.X('nr_ano_nr_mes_finalizacao:O'),
+                y=alt.Y('tempo_atendimento:N'),
+                text='tempo_atendimento:N'
+            )
 
-        # Titulo do gráfico        
-        st.subheader("Tempo Médio de Atendimento por Estado")
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        tempo_medio_ano_mes_altair = df_atendimentos.groupby('uf')['id'].nunique().reset_index(name='Contagem')
+            st.altair_chart(chart + chart_text)
 
-        # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(tempo_medio_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('uf:O', axis=alt.Axis(labelAngle=0, title='Estado'), title='Estado')  # Aqui desativamos o título do eixo x
-        ).properties(
-            width=1400,
-            height=400
-        )
-        # Adiciona rótulos de valores no topo das barras com cor branca
-        text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
-
-        st.altair_chart(chart + text)
-
-    # Adicionando uma área de expansão
+    # Adicionando uma área de expansão para o Tempo Médio de Atendimento por Cidade
     with st.expander("Tempo Médio de Atendimento por Cidade", expanded=st.session_state.expander_state):
+            st.subheader("Tempo Médio de Atendimento por Cidade")
+            tempo_medio_cidade = df_atendimentos.groupby('cidade')['tempo_atendimento'].mean().reset_index()
+            chart = alt.Chart(tempo_medio_cidade).mark_bar().encode(
+                y=alt.Y('tempo_atendimento:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),
+                x=alt.X('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), title='Cidade')
+            ).properties(
+                width=1400,
+                height=400
+            )
+            st.altair_chart(chart)
 
-        # Titulo do gráfico        
-        st.subheader("Tempo Médio de Atendimento por Cidade")
-
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        tempo_medio_ano_mes_altair = df_atendimentos.groupby('cidade')['id'].nunique().reset_index(name='Contagem')
-
-        # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(tempo_medio_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), title='Cidade')  # Aqui desativamos o título do eixo x
-        ).properties(
-            width=1400,
-            height=400
-        )
-        # Adiciona rótulos de valores no topo das barras com cor branca
-        text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
-
-        st.altair_chart(chart + text)
-
-    # Adicionando uma área de expansão
+    # Adicionando uma área de expansão para o Tempo Médio de Atendimento por Filial
     with st.expander("Tempo Médio de Atendimento por Filial", expanded=st.session_state.expander_state):
+            st.subheader("Tempo Médio de Atendimento por Filial")
+            tempo_medio_filial = df_atendimentos.groupby('filial')['tempo_atendimento'].mean().reset_index()
+            chart = alt.Chart(tempo_medio_filial).mark_bar().encode(
+                y=alt.Y('tempo_atendimento:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),
+                x=alt.X('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), title='Filial')
+            ).properties(
+                width=1400,
+                height=400
+            )
+            st.altair_chart(chart)
 
-        # Titulo do gráfico        
-        st.subheader("Tempo Médio de Atendimento por Filial")
-
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        tempo_medio_ano_mes_altair = df_atendimentos.groupby('filial')['id'].nunique().reset_index(name='Contagem')
-
-        # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(tempo_medio_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), title='Filial')  # Aqui desativamos o título do eixo x
-        ).properties(
-            width=1400,
-            height=400
-        )
-        # Adiciona rótulos de valores no topo das barras com cor branca
-        text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
-
-        st.altair_chart(chart + text)
-
+    # Adicionando uma área de expansão para o Tempo Médio de Atendimento por Setor
     with st.expander("Tempo Médio de Atendimento por Setor", expanded=st.session_state.expander_state):
-        # Titulo do gráfico        
-        st.subheader("Tempo Médio de Atendimento por Setor")
+            st.subheader("Tempo Médio de Atendimento por Setor")
+            tempo_medio_setor = df_atendimentos.groupby('setor')['tempo_atendimento'].mean().reset_index()
+            chart = alt.Chart(tempo_medio_setor).mark_bar().encode(
+                y=alt.Y('tempo_atendimento:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),
+                x=alt.X('setor:O', axis=alt.Axis(title='Setor', labelAngle=0, labelFontSize=10), title='Setor')
+            ).properties(
+                width=1400,
+                height=400
+            )
+            st.altair_chart(chart)
 
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        tempo_medio_ano_mes_altair = df_atendimentos.groupby('setor')['id'].nunique().reset_index(name='Contagem')
-
-        # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(tempo_medio_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('setor:O', axis=alt.Axis(title='Setor', labelAngle=0, labelFontSize=10), title='Setor')  # Adicionei um título para o eixo x e ajustei o ângulo e o tamanho da fonte dos rótulos
-        ).properties(
-            width=1400,  # Reduzi a largura do gráfico
-            height=400
-        )
-
-        # Adiciona rótulos de valores no topo das barras com cor branca
-        text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
-
-        st.altair_chart(chart + text)
-
+    # Adicionando uma área de expansão para o Tempo Médio de Atendimento por Colaborador
     with st.expander("Tempo Médio de Atendimento por Colaborador", expanded=st.session_state.expander_state):
-        # Titulo do gráfico        
-        st.subheader("Tempo Médio de Atendimento por Colaborador")
-        
-        # Extrair o primeiro nome de cada colaborador
-        df_atendimentos['primeiro_nome'] = df_atendimentos['colaborador'].apply(lambda x: x.split()[0])
+            st.subheader("Tempo Médio de Atendimento por Colaborador")
+            tempo_medio_colaborador = df_atendimentos.groupby('primeiro_nome')['tempo_atendimento'].mean().reset_index()
+            chart = alt.Chart(tempo_medio_colaborador).mark_bar().encode(
+                y=alt.Y('tempo_atendimento:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),
+                x=alt.X('primeiro_nome:O', axis=alt.Axis(title='Colaborador', labelAngle=0, labelFontSize=10), title='Colaborador')
+            ).properties(
+                width=1400,
+                height=400
+            )
+            st.altair_chart(chart)
 
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        tempo_medio_ano_mes_altair = df_atendimentos.groupby('primeiro_nome')['id'].nunique().reset_index(name='Contagem')
-
-        # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(tempo_medio_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('primeiro_nome:O', axis=alt.Axis(title='Colaborador', labelAngle=0, labelFontSize=10), title='Colaborador')  # Adicionei um título para o eixo x e ajustei o ângulo e o tamanho da fonte dos rótulos
-        ).properties(
-            width=1400,  # Reduzi a largura do gráfico
-            height=400
-        )
-
-        # Adiciona rótulos de valores no topo das barras com cor branca
-        text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
-
-        st.altair_chart(chart + text)
-
+    # Adicionando uma área de expansão para o Tempo Médio de Atendimento por Assunto
     with st.expander("Tempo Médio de Atendimento por Assunto", expanded=st.session_state.expander_state):
-        # Titulo do gráfico        
-        st.subheader("Tempo Médio de Atendimento por Assunto")
+            st.subheader("Tempo Médio de Atendimento por Assunto")
+            tempo_medio_assunto = df_atendimentos.groupby('assunto')['tempo_atendimento'].mean().reset_index()
+            chart = alt.Chart(tempo_medio_assunto).mark_bar().encode(
+                y=alt.Y('tempo_atendimento:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),
+                x=alt.X('assunto:O', axis=alt.Axis(title='Assunto', labelAngle=0, labelFontSize=10), title='Assunto')
+            ).properties(
+                width=1400,
+                height=400
+            )
+            st.altair_chart(chart)
 
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        tempo_medio_ano_mes_altair = df_atendimentos.groupby('assunto')['id'].nunique().reset_index(name='Contagem')
-
-        # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(tempo_medio_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('assunto:O', axis=alt.Axis(title='Assunto', labelAngle=0, labelFontSize=10), title='Assunto')  # Adicionei um título para o eixo x e ajustei o ângulo e o tamanho da fonte dos rótulos
-        ).properties(
-            width=1400,  # Reduzi a largura do gráfico
-            height=400
-        )
-
-        # Adiciona rótulos de valores no topo das barras com cor branca
-        text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
-
-        st.altair_chart(chart + text)
-
+    # Adicionando uma área de expansão para o Tempo Médio de Atendimento por Tipo de Atendimento
     with st.expander("Tempo Médio de Atendimento por Tipo Atendimento", expanded=st.session_state.expander_state):
-        # Titulo do gráfico        
-        st.subheader("Tempo Médio de Atendimento por Tipo Atendimento")
+            st.subheader("Tempo Médio de Atendimento por Tipo Atendimento")
+            tempo_medio_tipo_atendimento = df_atendimentos.groupby('tipo_atendimento')['tempo_atendimento'].mean().reset_index()
+            chart = alt.Chart(tempo_medio_tipo_atendimento).mark_bar().encode(
+                y=alt.Y('tempo_atendimento:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),
+                x=alt.X('tipo_atendimento:O', axis=alt.Axis(title='Tipo Atendimento', labelAngle=0, labelFontSize=10), title='Tipo Atendimento')
+            ).properties(
+                width=1400,
+                height=400
+            )
+            st.altair_chart(chart)
 
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        tempo_medio_ano_mes_altair = df_atendimentos.groupby('tipo_atendimento')['id'].nunique().reset_index(name='Contagem')
-
-        # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(tempo_medio_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('tipo_atendimento:O', axis=alt.Axis(title='Tipo Atendimento', labelAngle=0, labelFontSize=10), title='Tipo Atendimento')  # Adicionei um título para o eixo x e ajustei o ângulo e o tamanho da fonte dos rótulos
-        ).properties(
-            width=1400,  # Reduzi a largura do gráfico
-            height=400
-        )
-
-        # Adiciona rótulos de valores no topo das barras com cor branca
-        text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
-
-        st.altair_chart(chart + text)
-
+    # Adicionando uma área de expansão para o Tempo Médio de Atendimento por Prioridade
     with st.expander("Tempo Médio de Atendimento por Prioridade", expanded=st.session_state.expander_state):
-        # Titulo do gráfico        
-        st.subheader("Tempo Médio de Atendimento por Prioridade")
-
-        # Agregar os dados para contar a quantidade de IDs por ano/mês
-        tempo_medio_ano_mes_altair = df_atendimentos.groupby('prioridade')['id'].nunique().reset_index(name='Contagem')
-
-        # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(tempo_medio_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title=None)),  # Aqui desativamos o título do eixo y
-            x=alt.X('prioridade:O', axis=alt.Axis(title='Prioridade', labelAngle=0, labelFontSize=10), title='Prioridade')  # Adicionei um título para o eixo x e ajustei o ângulo e o tamanho da fonte dos rótulos
-        ).properties(
-            width=1400,  # Reduzi a largura do gráfico
-            height=400
-        )
-
-        # Adiciona rótulos de valores no topo das barras com cor branca
-        text = chart.mark_text(
-            align='center',
-            baseline='middle',
-            dy=-10,  # Deslocamento vertical
-            color='white'  # Cor branca para o texto
-        ).encode(
-            text='Contagem:Q'
-        )
-
-        st.altair_chart(chart + text)
+            st.subheader("Tempo Médio de Atendimento por Prioridade")
+            tempo_medio_prioridade = df_atendimentos.groupby('prioridade')['tempo_atendimento'].mean().reset_index()
+            chart = alt.Chart(tempo_medio_prioridade).mark_bar().encode(
+                y=alt.Y('tempo_atendimento:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),
+                x=alt.X('prioridade:O', axis=alt.Axis(title='Prioridade', labelAngle=0, labelFontSize=10), title='Prioridade')
+            ).properties(
+                width=1400,
+                height=400
+            )
+            st.altair_chart(chart)
 
 
-        # Altera o estado do expander ao final da seção
-        st.session_state.expander_state = st.session_state.expander_state
+    # Altera o estado do expander ao final da seção
+    st.session_state.expander_state = st.session_state.expander_state
 
 if __name__ == "__main__":
     main()
