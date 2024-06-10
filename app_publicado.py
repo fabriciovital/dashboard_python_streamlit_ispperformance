@@ -161,7 +161,10 @@ def app_interface():
         )
 
         # Consulta para buscar cidades únicas com base nos estados selecionados
-        cidades_unicas = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados)]['cidade'].unique()
+        if len(estados_selecionados) == 0:
+            cidades_unicas = df_atendimentos['cidade'].unique()
+        else:
+            cidades_unicas = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados)]['cidade'].unique()
 
         # Configura os filtros na barra lateral para cidade
         cidades_selecionadas = st.sidebar.multiselect(
@@ -171,25 +174,34 @@ def app_interface():
         )
 
         # Consulta para buscar filiais únicas com base nas cidades selecionadas
-        filiais_unicas = df_atendimentos[df_atendimentos['cidade'].isin(cidades_selecionadas)]['filial'].unique()
+        if len(cidades_selecionadas) == 0:
+            filiais_unicas = df_atendimentos['filial'].unique()
+        else:
+            filiais_unicas = df_atendimentos[df_atendimentos['cidade'].isin(cidades_selecionadas)]['filial'].unique()
 
-        # Configura os filtros na barra lateral para filial
-        filiais_selecionadas = st.sidebar.multiselect(
-            "Selecione Filial",
-            options=filiais_unicas,
-            default=filiais_unicas
-        )
+    # Configura os filtros na barra lateral para filial
+    filiais_selecionadas = st.sidebar.multiselect(
+        "Selecione Filial",
+        options=filiais_unicas,
+        default=filiais_unicas
+    )
 
     # Filtrar o DataFrame baseado nos filtros selecionados
-    df_atendimentos = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados) &
-                                            df_atendimentos['cidade'].isin(cidades_selecionadas) &
-                                            df_atendimentos['filial'].isin(filiais_selecionadas)]
+    if len(estados_selecionados) == 0 and len(cidades_selecionadas) == 0:
+        df_filtrado = df_atendimentos.copy()  # Nenhum filtro aplicado
+    else:
+        df_filtrado = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados) &
+                                    df_atendimentos['cidade'].isin(cidades_selecionadas) &
+                                    df_atendimentos['filial'].isin(filiais_selecionadas)]
 
     # Exibir análises adicionais
-    if not df_atendimentos.empty:
+    if not df_filtrado.empty:
 
-            # Titulo da sub-pagina
-            st.title("Análise de Atendimentos Finalizados")
+        # Titulo da sub-pagina
+        st.title("Análise de Atendimentos Finalizados")
+
+
+        
 
     # Volume de Atendimentos por Ano/Mês
     with st.expander("Volume de Atendimentos por Ano/Mês", expanded=expander_state):
