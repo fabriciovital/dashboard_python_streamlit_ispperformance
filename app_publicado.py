@@ -106,14 +106,14 @@ def login():
         if username == "admin" and password == "admin":
             st.session_state.loggedin = True
             st.session_state.username = username  # Armazena o nome do usuário na sessão
-            st.sidebar.empty()  # Limpa a barra lateral
+            st.experimental_rerun()  # Recarregar a página após login bem-sucedido
             main()  # Chamada da função principal novamente
         else:
             st.sidebar.error("Usuário ou senha incorretos.")
 
 # Limpa a barra lateral sempre que a função login é chamada
     st.sidebar.empty()
-    
+
 # Função para exibir a interface da aplicação
 def app_interface():
     st.header("ANALISE DE PERFORMANCE | INDICADORES & PROGRESSÃO ")
@@ -125,7 +125,8 @@ def app_interface():
     if st.sidebar.button("Sair"):
         st.session_state.loggedin = False
         st.session_state.expander_state = False        
-
+        st.experimental_rerun()  # Recarregar a página após sair
+        
     # Botão Expandir/Recolher
     expandir_recolher = st.button("Expandir/Recolher")
 
