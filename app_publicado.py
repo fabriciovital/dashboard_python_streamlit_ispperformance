@@ -126,6 +126,7 @@ def app_interface():
         st.session_state.loggedin = False
         st.session_state.expander_state = False        
         st.experimental_rerun()  # Recarregar a página após sair
+        
     # Botão Expandir/Recolher
     expandir_recolher = st.button("Expandir/Recolher")
 
