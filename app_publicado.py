@@ -1,24 +1,6 @@
 import streamlit as st
 import pandas as pd
-import psycopg2
 import altair as alt
-
-# Função para estabelecer a conexão com o banco de dados PostgreSQL
-def get_connection():
-    conn = psycopg2.connect(
-        host="127.0.0.1",
-        database="postgres",
-        user="fabricio",
-        password="kr8c4s%w"
-    )
-    return conn
-
-# Função para buscar os dados do PostgreSQL
-def fetch_data(query, params=None):
-    conn = get_connection()
-    df = pd.read_sql_query(query, conn, params=params)
-    conn.close()
-    return df
 
 # Define a configuração da página no Streamlit
 st.set_page_config(page_title="ISP Performance - Decisões inteligentes, baseadas em dados confiáveis para o sucesso do seu provedor!", page_icon="📊", layout="wide")
@@ -29,12 +11,118 @@ with open('style.css') as f:
 
 # Função principal do Streamlit
 def main():
-    app_interface()
+    if 'loggedin' not in st.session_state:
+        st.session_state.loggedin = False
+
+    if not st.session_state.loggedin:
+        login()
+    else:
+        app_interface()
+
+# Função para exibir a tela de login
+def login():
+    st.markdown("""
+        <style>
+            .animation-container {
+                text-align: center;
+                margin-bottom: 20px;
+            }
+
+            .program-name {
+                font-size: 50px;
+                color: white; /* Cor do texto branca */
+                background: linear-gradient(to right, #007bff, #1e90ff); /* Degrade azul no fundo do título */
+                padding: 10px 20px;
+                border-radius: 10px;
+                display: inline-block;
+            }
+
+            .animation {
+                background: linear-gradient(to right, #ff9966, #ff5e62);
+                padding: 20px;
+                border-radius: 10px;
+                animation: fadeIn 5s ease-in-out forwards;
+                opacity: 0;
+            }
+
+            .animation p {
+                opacity: 0;
+                animation: fadeInText 2s ease-in-out forwards;
+                font-size: 30px; /* Alteração do tamanho da fonte das frases */
+                margin-bottom: 15px; /* Espaçamento entre as frases */
+                color: white; /* Mantida a cor original das frases */
+            }
+
+            .animation p:nth-child(1) {
+                animation-delay: 0.5s;
+            }
+
+            .animation p:nth-child(2) {
+                animation-delay: 3s;
+            }
+
+            .animation p:nth-child(3) {
+                animation-delay: 5.5s;
+            }
+
+            .animation p:nth-child(4) {
+                animation-delay: 8s;
+            }
+
+            .animation p:nth-child(5) {
+                animation-delay: 10.5s;
+            }
+
+            .animation p:nth-child(6) {
+                animation-delay: 13s;
+            }
+
+            @keyframes fadeIn {
+                0% { opacity: 0; }
+                100% { opacity: 1; }
+            }
+
+            @keyframes fadeInText {
+                0% { opacity: 0; }
+                100% { opacity: 1; }
+            }
+        </style>
+        <div class='animation-container'>
+            <div class='program-name'>ISP Performance</div>
+            <div class='animation'>
+                <p>Decisões inteligentes, baseadas em dados confiáveis para o sucesso do seu provedor!</p>
+                <p>1º - Transforme seus dados em vantagem competitiva.</p>
+                <p>2º - Desbloqueie o potencial oculto dos seus dados.</p>
+                <p>3º - Inove com confiança, baseado em dados sólidos.</p>
+                <p>4º - Construa o futuro do seu negócio com inteligência.</p>                  
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.sidebar.title("Login")
+    username = st.sidebar.text_input("Usuário")
+    password = st.sidebar.text_input("Senha", type="password")
+    if st.sidebar.button("Login"):
+        if username == "admin" and password == "admin":
+            st.session_state.loggedin = True
+            st.session_state.username = username  # Armazena o nome do usuário na sessão
+            st.sidebar.empty()  # Limpa a barra lateral        
+        else:
+            st.sidebar.error("Usuário ou senha incorretos.")
 
 # Função para exibir a interface da aplicação
 def app_interface():
     st.header("ANALISE DE PERFORMANCE | INDICADORES & PROGRESSÃO ")
+
+    # Exibe o nome do usuário logado acima do botão Sair
+    st.sidebar.write(f"Bem-vindo, {st.session_state.username}!")
     
+    # Botão Sair
+    if st.sidebar.button("Sair"):
+        st.session_state.loggedin = False
+        st.session_state.expander_state = False
+        st.experimental_rerun()  # Força uma atualização da página
+
     # Botão Expandir/Recolher
     expandir_recolher = st.button("Expandir/Recolher")
 
@@ -49,139 +137,55 @@ def app_interface():
         # Alterna o estado do expander
         st.session_state.expander_state = not expander_state
 
-    # Consulta para buscar estados da tabela dim_cidade
-    query_estados = "SELECT DISTINCT UF FROM dim_cidade ORDER BY UF"
-    df_estados = fetch_data(query_estados)
+    # Carregar os dados do arquivo CSV
+    df_atendimentos = pd.read_csv('atendimentos.csv')
 
-    # Configura os filtros na barra lateral para estado
-    estados = st.sidebar.multiselect(
-        "Selecione Estado",
-        options=df_estados["uf"].unique(),
-        default=df_estados["uf"].unique(),
-    )
+    # Verificar as colunas disponíveis no DataFrame
+    colunas_disponiveis = df_atendimentos.columns.tolist()
 
-    # Consulta para buscar cidades da tabela dim_cidade com base nos estados selecionados
-    if estados:
-        query_cidades = """
-        SELECT DISTINCT Cidade 
-        FROM dim_cidade 
-        WHERE UF IN %s 
-        ORDER BY Cidade;
-        """
-        params_cidades = (tuple(estados),)
-    else:
-        query_cidades = """
-        SELECT DISTINCT Cidade 
-        FROM dim_cidade 
-        ORDER BY Cidade;
-        """
-        params_cidades = None
-    df_cidades = fetch_data(query_cidades, params=params_cidades)
+    # Verificar se todas as colunas necessárias estão presentes
+    if all(coluna in colunas_disponiveis for coluna in ['uf', 'cidade', 'filial']):
 
-    # Configura os filtros na barra lateral para cidade
-    cidades = st.sidebar.multiselect(
-        "Selecione Cidade",
-        options=df_cidades["cidade"].unique(),
-        default=df_cidades["cidade"].unique(),
-    )
+        # Consulta para buscar estados únicos
+        estados_unicos = df_atendimentos['uf'].unique()
 
-    # Consulta para buscar filiais com base nas cidades selecionadas
-    query_filiais = """
-    SELECT DISTINCT Filial 
-    FROM dim_filial 
-    ORDER BY Filial;
-    """
-    df_filiais = fetch_data(query_filiais)
+        # Configura os filtros na barra lateral para estado
+        estados_selecionados = st.sidebar.multiselect(
+            "Selecione Estado",
+            options=estados_unicos,
+            default=estados_unicos
+        )
 
-    # Configura os filtros na barra lateral para filial
-    filiais = st.sidebar.multiselect(
-        "Selecione Filial",
-        options=df_filiais["filial"].unique(),
-        default=df_filiais["filial"].unique(),
-    )
+        # Consulta para buscar cidades únicas com base nos estados selecionados
+        cidades_unicas = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados)]['cidade'].unique()
 
-    # Converte os filtros selecionados para tipos nativos do Python
-    estados = [str(estado) for estado in estados]
-    cidades = [str(cidade) for cidade in cidades]
-    filiais = [str(filial) for filial in filiais]
+        # Configura os filtros na barra lateral para cidade
+        cidades_selecionadas = st.sidebar.multiselect(
+            "Selecione Cidade",
+            options=cidades_unicas,
+            default=cidades_unicas
+        )
 
-    # Construindo a consulta principal dinamicamente
-    query_atendimentos = """
-    SELECT 
-        fa.id,
-        dda.data_completa AS data_abertura,
-        fa.hora_abertura,
-        ddag.data_completa AS data_agendamento,
-        fa.hora_agendamento,
-        ddi.data_completa AS data_inicio,
-        fa.hora_inicio,
-        ddf.data_completa AS data_finalizacao,
-        ddf.nr_ano AS nr_ano_finalizacao,
-        ddf.nr_mes AS nr_mes_finalizacao,
-        ddf.nm_mes AS nm_mes_finalizacao,
-        ddf.nr_dia_mes AS nr_dia_mes_finalizacao,
-        ddf.nm_dia_semana AS nm_dia_semana_finalizacao,
-        ddf.nm_trimestre AS nm_trimestre_finalizacao,
-        ddf.nr_ano_nr_mes AS nr_ano_nr_mes_finalizacao,
-        fa.hora_finalizacao,
-        fa.sla,
-        fa.liberado,
-        fa.mensagem,
-        fa.impresso,
-        dc.UF,
-        dc.Cidade,
-        df.Filial,
-        dt.tipo_atendimento,
-        ds.status,
-        dcl.cliente,
-        das.assunto,
-        dse.setor,
-        dco.colaborador,
-        dp.prioridade
-    FROM 
-        fato_atendimento fa
-        JOIN dim_cidade dc ON fa.sk_cidade = dc.sk_cidade
-        JOIN dim_filial df ON fa.sk_filial = df.sk_filial
-        JOIN dim_tipo_atendimento dt ON fa.sk_tipo_atendimento = dt.sk_tipo_atendimento
-        JOIN dim_status ds ON fa.sk_status = ds.sk_status
-        JOIN dim_cliente dcl ON fa.sk_cliente = dcl.sk_cliente
-        JOIN dim_assunto das ON fa.sk_assunto = das.sk_assunto
-        JOIN dim_setor dse ON fa.sk_setor = dse.sk_setor
-        JOIN dim_colaborador dco ON fa.sk_colaborador = dco.sk_colaborador
-        JOIN dim_prioridade dp ON fa.sk_prioridade = dp.sk_prioridade
-        JOIN dim_tempo dda ON fa.sk_data_abertura = dda.sk_data
-        JOIN dim_tempo ddag ON fa.sk_data_agendamento = ddag.sk_data
-        JOIN dim_tempo ddi ON fa.sk_data_inicio = ddi.sk_data
-        JOIN dim_tempo ddf ON fa.sk_data_finalizacao = ddf.sk_data
-    """
+        # Consulta para buscar filiais únicas com base nas cidades selecionadas
+        filiais_unicas = df_atendimentos[df_atendimentos['cidade'].isin(cidades_selecionadas)]['filial'].unique()
 
-    # Adicionando condições dinamicamente
-    conditions = []
-    params = []
+        # Configura os filtros na barra lateral para filial
+        filiais_selecionadas = st.sidebar.multiselect(
+            "Selecione Filial",
+            options=filiais_unicas,
+            default=filiais_unicas
+        )
 
-    if estados:
-        conditions.append("dc.UF IN %s")
-        params.append(tuple(estados))
+    # Filtrar o DataFrame baseado nos filtros selecionados
+    df_atendimentos = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados) &
+                                            df_atendimentos['cidade'].isin(cidades_selecionadas) &
+                                            df_atendimentos['filial'].isin(filiais_selecionadas)]
 
-    if cidades:
-        conditions.append("dc.Cidade IN %s")
-        params.append(tuple(cidades))
-
-    if filiais:
-        conditions.append("df.Filial IN %s")
-        params.append(tuple(filiais))
-    
-    if conditions:
-        query_atendimentos += " WHERE " + " AND ".join(conditions)
-
-    # Executando a consulta com os parâmetros
-    df_atendimentos = fetch_data(query_atendimentos, params=params)
-    
     # Exibir análises adicionais
     if not df_atendimentos.empty:
 
-        # Titulo da sub-pagina
-        st.title("Análise de Atendimentos Finalizados")
+            # Titulo da sub-pagina
+            st.title("Análise de Atendimentos Finalizados")
 
     # Volume de Atendimentos por Ano/Mês
     with st.expander("Volume de Atendimentos por Ano/Mês", expanded=expander_state):
