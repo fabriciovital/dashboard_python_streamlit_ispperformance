@@ -120,8 +120,7 @@ def app_interface():
     # Botão Sair
     if st.sidebar.button("Sair"):
         st.session_state.loggedin = False
-        st.session_state.expander_state = False
-        st.experimental_rerun()  # Força uma atualização da página
+        st.session_state.expander_state = False        
 
     # Botão Expandir/Recolher
     expandir_recolher = st.button("Expandir/Recolher")
