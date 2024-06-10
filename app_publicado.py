@@ -106,7 +106,8 @@ def login():
         if username == "admin" and password == "admin":
             st.session_state.loggedin = True
             st.session_state.username = username  # Armazena o nome do usuário na sessão
-            st.sidebar.empty()  # Limpa a barra lateral        
+            st.sidebar.empty()  # Limpa a barra lateral
+            main()  # Chamada da função principal novamente
         else:
             st.sidebar.error("Usuário ou senha incorretos.")
 
