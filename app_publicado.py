@@ -110,7 +110,9 @@ def login():
             main()  # Chamada da função principal novamente
         else:
             st.sidebar.error("Usuário ou senha incorretos.")
-
+    else:
+        st.sidebar.empty()  # Limpa a barra lateral se o botão de login não for clicado
+        
 # Função para exibir a interface da aplicação
 def app_interface():
     st.header("ANALISE DE PERFORMANCE | INDICADORES & PROGRESSÃO ")
