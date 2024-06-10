@@ -147,9 +147,13 @@ def app_interface():
     # Verificar as colunas disponíveis no DataFrame
     colunas_disponiveis = df_atendimentos.columns.tolist()
 
+    # Inicializar variáveis vazias
+    estados_selecionados = []
+    cidades_selecionadas = []
+    filiais_selecionadas = []
+
     # Verificar se todas as colunas necessárias estão presentes
     if all(coluna in colunas_disponiveis for coluna in ['uf', 'cidade', 'filial']):
-
         # Consulta para buscar estados únicos
         estados_unicos = df_atendimentos['uf'].unique()
 
@@ -181,9 +185,13 @@ def app_interface():
         )
 
     # Filtrar o DataFrame baseado nos filtros selecionados
-    df_atendimentos = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados) &
-                                            df_atendimentos['cidade'].isin(cidades_selecionadas) &
-                                            df_atendimentos['filial'].isin(filiais_selecionadas)]
+    df_filtrado = df_atendimentos
+    if estados_selecionados:
+        df_filtrado = df_filtrado[df_filtrado['uf'].isin(estados_selecionados)]
+    if cidades_selecionadas:
+        df_filtrado = df_filtrado[df_filtrado['cidade'].isin(cidades_selecionadas)]
+    if filiais_selecionadas:
+        df_filtrado = df_filtrado[df_filtrado['filial'].isin(filiais_selecionadas)]
 
     # Exibir análises adicionais
     if not df_atendimentos.empty:
