@@ -147,43 +147,40 @@ def app_interface():
     # Verificar as colunas disponíveis no DataFrame
     colunas_disponiveis = df_atendimentos.columns.tolist()
 
-    # Verificar se todas as colunas necessárias estão presentes
-    if all(coluna in colunas_disponiveis for coluna in ['uf', 'cidade', 'filial']):
+    # Consulta para buscar estados únicos
+    estados_unicos = df_atendimentos['uf'].unique()
 
-        # Consulta para buscar estados únicos
-        estados_unicos = df_atendimentos['uf'].unique()
+    # Configura os filtros na barra lateral para estado
+    estados_selecionados = st.sidebar.multiselect(
+        "Selecione Estado",
+        options=estados_unicos,
+        default=estados_unicos
+    )
 
-        # Configura os filtros na barra lateral para estado
-        estados_selecionados = st.sidebar.multiselect(
-            "Selecione Estado",
-            options=estados_unicos,
-            default=estados_unicos
-        )
+    # Consulta para buscar cidades únicas com base nos estados selecionados
+    cidades_unicas = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados)]['cidade'].unique()
 
-        # Consulta para buscar cidades únicas com base nos estados selecionados
-        cidades_unicas = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados)]['cidade'].unique()
+    # Configura os filtros na barra lateral para cidade
+    cidades_selecionadas = st.sidebar.multiselect(
+        "Selecione Cidade",
+        options=cidades_unicas,
+        default=cidades_unicas
+    )
 
-        # Configura os filtros na barra lateral para cidade
-        cidades_selecionadas = st.sidebar.multiselect(
-            "Selecione Cidade",
-            options=cidades_unicas,
-            default=cidades_unicas
-        )
+    # Consulta para buscar filiais únicas com base nas cidades selecionadas
+    filiais_unicas = df_atendimentos[df_atendimentos['cidade'].isin(cidades_selecionadas)]['filial'].unique()
 
-        # Consulta para buscar filiais únicas com base nas cidades selecionadas
-        filiais_unicas = df_atendimentos[df_atendimentos['cidade'].isin(cidades_selecionadas)]['filial'].unique()
-
-        # Configura os filtros na barra lateral para filial
-        filiais_selecionadas = st.sidebar.multiselect(
-            "Selecione Filial",
-            options=filiais_unicas,
-            default=filiais_unicas
-        )
+    # Configura os filtros na barra lateral para filial
+    filiais_selecionadas = st.sidebar.multiselect(
+        "Selecione Filial",
+        options=filiais_unicas,
+        default=filiais_unicas
+    )
 
     # Filtrar o DataFrame baseado nos filtros selecionados
     df_atendimentos = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados) &
-                                            df_atendimentos['cidade'].isin(cidades_selecionadas) &
-                                            df_atendimentos['filial'].isin(filiais_selecionadas)]
+                                    df_atendimentos['cidade'].isin(cidades_selecionadas) &
+                                    df_atendimentos['filial'].isin(filiais_selecionadas)]
 
     # Exibir análises adicionais
     if not df_atendimentos.empty:
