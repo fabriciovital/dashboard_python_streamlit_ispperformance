@@ -178,8 +178,8 @@ def app_interface():
     )
 
     # Filtrar o DataFrame baseado nos filtros selecionados
-    df_atendimentos = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados) or
-                                    df_atendimentos['cidade'].isin(cidades_selecionadas) or
+    df_atendimentos = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados) &
+                                    df_atendimentos['cidade'].isin(cidades_selecionadas) &
                                     df_atendimentos['filial'].isin(filiais_selecionadas)]
     # Exibir análises adicionais
     if not df_atendimentos.empty:
