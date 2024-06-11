@@ -287,8 +287,8 @@ def app_interface():
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(volume_cidade_altair).mark_bar().encode(
-            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos")),  # Título do eixo x
-            y=alt.Y('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), sort='-x', scale=alt.Scale(padding=0))  # Título do eixo y e ordenação
+            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos"), scale=alt.Scale(padding=20)),  # Título do eixo x
+            y=alt.Y('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), sort='-x')  # Título do eixo y e ordenação
         ).properties(
             width='container',  # Ajustar a largura do gráfico
             height=alt.Step(1 * len(volume_cidade_altair)),
@@ -317,8 +317,8 @@ def app_interface():
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(volume_filial_altair).mark_bar().encode(
-            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos")),  # Título do eixo x
-            y=alt.Y('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), sort='-x', scale=alt.Scale(padding=0))  # Título do eixo y e ordenação
+            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos"), scale=alt.Scale(padding=20)),  # Título do eixo x
+            y=alt.Y('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), sort='-x')  # Título do eixo y e ordenação
         ).properties(
             width='container',  # Ajustar a largura do gráfico
             height=alt.Step(1 * len(volume_filial_altair)),
@@ -414,8 +414,8 @@ def app_interface():
 
         # Criar o gráfico usando Altair com barras verticais
         chart = alt.Chart(volume_assunto_altair).mark_bar().encode(
-            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Assunto")),  # Desativar o título do eixo x
-            y=alt.Y('assunto:O', axis=alt.Axis(title='Assunto', labelAngle=0, labelFontSize=10), title='Assunto', sort='-x', scale=alt.Scale(padding=0))  # Adicionar um título para o eixo y e ajustar o ângulo e o tamanho da fonte dos rótulos
+            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Assunto"), scale=alt.Scale(padding=20)),  # Desativar o título do eixo x
+            y=alt.Y('assunto:O', axis=alt.Axis(title='Assunto', labelAngle=0, labelFontSize=10), title='Assunto', sort='-x')  # Adicionar um título para o eixo y e ajustar o ângulo e o tamanho da fonte dos rótulos
         ).properties(
             width='container',  # Ajustar a largura do gráfico
             height= alt.Step(1 * len(volume_assunto_altair)),
@@ -844,8 +844,8 @@ def app_interface():
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por Cidade
         chart_tempo_medio = alt.Chart(tempo_medio_cidade).mark_bar().encode(
-            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo x com tempo médio de atendimento em horas
-            y=alt.Y('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), title='Cidade', sort='-x', scale=alt.Scale(padding=0)),  # Eixo y com Cidade
+            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)'), scale=alt.Scale(padding=20)),  # Eixo x com tempo médio de atendimento em horas
+            y=alt.Y('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), title='Cidade', sort='-x'),  # Eixo y com Cidade
         ).properties(
             width='container',  # Ajustar a largura do gráfico
             height=alt.Step(1 * len(tempo_medio_cidade)),
@@ -876,8 +876,8 @@ def app_interface():
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por Filial
         chart_tempo_medio = alt.Chart(tempo_medio_filial).mark_bar().encode(
-            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo x com tempo médio de atendimento em horas
-            y=alt.Y('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), title='Filial', sort='-x', scale=alt.Scale(padding=0)),  # Eixo y com Filial                
+            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)'), scale=alt.Scale(padding=20)),  # Eixo x com tempo médio de atendimento em horas
+            y=alt.Y('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), title='Filial', sort='-x'),  # Eixo y com Filial                
         ).properties(
             width='container',  # Ajustar a largura do gráfico
             height=alt.Step(1 * len(tempo_medio_filial)),
