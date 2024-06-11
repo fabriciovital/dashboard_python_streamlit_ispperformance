@@ -157,8 +157,8 @@ def app_interface():
         default=estados_unicos
     )
 
-    # Consulta para buscar cidades únicas
-    cidades_unicas = df_atendimentos['cidade'].unique()
+    # Consulta para buscar cidades únicas com base nos estados selecionados
+    cidades_unicas = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados)]['cidade'].unique()
 
     # Configura os filtros na barra lateral para cidade
     cidades_selecionadas = st.sidebar.multiselect(
@@ -167,8 +167,8 @@ def app_interface():
         default=cidades_unicas
     )
 
-    # Consulta para buscar filiais únicas
-    filiais_unicas = df_atendimentos['filial'].unique()
+    # Consulta para buscar filiais únicas com base nas cidades selecionadas
+    filiais_unicas = df_atendimentos[df_atendimentos['cidade'].isin(cidades_selecionadas)]['filial'].unique()
 
     # Configura os filtros na barra lateral para filial
     filiais_selecionadas = st.sidebar.multiselect(
@@ -178,24 +178,15 @@ def app_interface():
     )
 
     # Filtrar o DataFrame baseado nos filtros selecionados
-    filtered_df = df_atendimentos.copy()  # Cria uma cópia do DataFrame original
-
-    # Aplica o filtro do estado, se houver seleções
-    if estados_selecionados:
-        filtered_df = filtered_df[filtered_df['uf'].isin(estados_selecionados)]
-
-    # Aplica o filtro da cidade, se houver seleções
-    if cidades_selecionadas:
-        filtered_df = filtered_df[filtered_df['cidade'].isin(cidades_selecionadas)]
-
-    # Aplica o filtro da filial, se houver seleções
-    if filiais_selecionadas:
-        filtered_df = filtered_df[filtered_df['filial'].isin(filiais_selecionadas)]
+    df_atendimentos = df_atendimentos[df_atendimentos['uf'].isin(estados_selecionados) &
+                                    df_atendimentos['cidade'].isin(cidades_selecionadas) &
+                                    df_atendimentos['filial'].isin(filiais_selecionadas)]
 
     # Exibir análises adicionais
-    if not filtered_df.empty:
-        # Titulo da sub-pagina
-        st.title("Análise de Atendimentos Finalizados")
+    if not df_atendimentos.empty:
+
+            # Titulo da sub-pagina
+            st.title("Análise de Atendimentos Finalizados")
 
     # Volume de Atendimentos por Ano/Mês
     with st.expander("Volume de Atendimentos por Ano/Mês", expanded=expander_state):
