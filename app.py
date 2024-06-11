@@ -20,6 +20,19 @@ def fetch_data(query, params=None):
     conn.close()
     return df
 
+# Função para obter o período mais recente a partir da tabela de fatos
+def get_most_recent_period():
+    query = "SELECT MAX(ddf.nr_ano_nr_mes) as most_recent_period FROM fato_atendimento fa JOIN dim_tempo ddf ON fa.sk_data_finalizacao = ddf.sk_data"
+    df = fetch_data(query)
+    if not df.empty:
+        return df['most_recent_period'][0]
+    return None
+
+# Função para obter todos os períodos disponíveis na tabela de fatos
+def get_all_periods():
+    query = "SELECT DISTINCT ddf.nr_ano_nr_mes as period FROM fato_atendimento fa JOIN dim_tempo ddf ON fa.sk_data_finalizacao = ddf.sk_data ORDER BY period"
+    return fetch_data(query)
+
 # Função de login
 def login(username, password):
     # Verifique as credenciais aqui no banco de dados
@@ -189,6 +202,23 @@ def app_interface():
         query_estados = "SELECT DISTINCT UF FROM dim_cidade ORDER BY UF"
         df_estados = fetch_data(query_estados)
 
+        # Consulta para buscar todos os períodos disponíveis
+        df_periods = get_all_periods()
+        all_periods = df_periods["period"].tolist()
+
+        # Reverte a lista para ordem decrescente
+        all_periods.reverse()
+
+        # Obtém o período mais recente
+        most_recent_period = get_most_recent_period()
+
+         # Configura o filtro na barra lateral para período com o mais recente pré-selecionado
+        period = st.sidebar.selectbox(
+            "Selecione o Período",
+            options=all_periods,
+            index=all_periods.index(most_recent_period) if most_recent_period else 0
+        )
+
         # Configura os filtros na barra lateral para estado
         estados = st.sidebar.multiselect(
             "Selecione Estado",
@@ -309,13 +339,18 @@ def app_interface():
         params.append(tuple(cidades))
 
     if user_type == "FILIAL":
-            conditions.append("df.Filial = %s")
-            params.append(user_filial)
+        conditions.append("df.Filial = %s")
+        params.append(user_filial)
     elif filiais:
-            conditions.append("df.Filial IN %s")
-            params.append(tuple(filiais))
-        # Adicionando a cláusula WHERE se houver condições
-    
+        conditions.append("df.Filial IN %s")
+        params.append(tuple(filiais))
+
+    # Adicionando a condição do período selecionado
+    if period:
+        conditions.append("ddf.nr_ano_nr_mes = %s")
+        params.append(period)
+
+    # Adicionando a cláusula WHERE se houver condições
     if conditions:
         query_atendimentos += " WHERE " + " AND ".join(conditions)
 
@@ -486,10 +521,13 @@ def app_interface():
         # Agregar os dados para contar a quantidade de IDs por colaborador
         volume_estado_altair = df_atendimentos.groupby('primeiro_nome')['id'].nunique().reset_index(name='Contagem')
 
+        # Ordenar os dados pelo valor do maior para o menor
+        volume_estado_altair = volume_estado_altair.sort_values(by='Contagem', ascending=False)
+
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(volume_estado_altair).mark_bar().encode(
             y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Colaborador")),  # Desativar o título do eixo y
-            x=alt.X('primeiro_nome:O', axis=alt.Axis(title='Colaborador', labelAngle=0, labelFontSize=10), title='Colaborador')  # Adicionar um título para o eixo x e ajustar o ângulo e o tamanho da fonte dos rótulos
+            x=alt.X('primeiro_nome:O', axis=alt.Axis(title='Colaborador', labelAngle=0, labelFontSize=10), title='Colaborador', sort='-y')  # Adicionar um título para o eixo x, ajustar o ângulo e o tamanho da fonte dos rótulos, e especificar a ordenação
         ).properties(
             width='container',  # Ajustar a largura do gráfico
             height=400
