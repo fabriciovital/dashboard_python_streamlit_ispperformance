@@ -144,6 +144,29 @@ def app_interface():
     # Carregar os dados do arquivo CSV
     df_atendimentos = pd.read_csv('atendimentos.csv')
 
+  # Encontre o período mais recente disponível
+    periodo_mais_recente = df_atendimentos['nr_ano_nr_mes_finalizacao'].max()
+
+    # Obtenha os períodos únicos
+    periodos_unicos = df_atendimentos['nr_ano_nr_mes_finalizacao'].unique()
+
+    # Inverta a ordem dos períodos únicos para que o mais recente fique no topo
+    periodos_unicos = periodos_unicos[::-1]
+
+    # Encontre o índice do período mais recente
+    indice_periodo_mais_recente = periodos_unicos.tolist().index(periodo_mais_recente)
+
+    # Substitua o botão por uma caixa de seleção para o período
+    periodo_selecionado = st.sidebar.selectbox(
+        "Selecione Período",
+        options=periodos_unicos,
+        index=indice_periodo_mais_recente,  # Índice do período mais recente
+        format_func=lambda x: str(x)  # Função para formatar os valores do seletor
+    )
+
+    # Filtrar o DataFrame baseado no período selecionado
+    df_atendimentos = df_atendimentos[df_atendimentos['nr_ano_nr_mes_finalizacao'] == periodo_selecionado]
+
     # Consulta para buscar estados únicos
     estados_unicos = df_atendimentos['uf'].unique()
 
