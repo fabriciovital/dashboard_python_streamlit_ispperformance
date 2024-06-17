@@ -212,11 +212,11 @@ def app_interface():
         # Obtém o período mais recente
         most_recent_period = get_most_recent_period()
 
-         # Configura o filtro na barra lateral para período com o mais recente pré-selecionado
-        period = st.sidebar.selectbox(
-            "Selecione o Período",
+         # Configura o filtro na barra lateral para período com múltipla seleção
+        periods = st.sidebar.multiselect(
+            "Selecione os Períodos",
             options=all_periods,
-            index=all_periods.index(most_recent_period) if most_recent_period else 0
+            default=[most_recent_period] if most_recent_period else []
         )
 
         # Configura os filtros na barra lateral para estado
@@ -346,9 +346,9 @@ def app_interface():
         params.append(tuple(filiais))
 
     # Adicionando a condição do período selecionado
-    if period:
-        conditions.append("ddf.nr_ano_nr_mes = %s")
-        params.append(period)
+    if periods:
+        conditions.append("ddf.nr_ano_nr_mes IN %s")
+        params.append(tuple(periods))
 
     # Adicionando a cláusula WHERE se houver condições
     if conditions:
@@ -364,6 +364,7 @@ def app_interface():
         st.title("Análise de Atendimentos Finalizados")
 
     # Volume de Atendimentos por Ano/Mês
+     # Volume de Atendimentos por Ano/Mês
     with st.expander("Volume de Atendimentos por Ano/Mês", expanded=expander_state):
 
         # Título do gráfico
@@ -374,12 +375,12 @@ def app_interface():
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(volume_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Ano/Mês")),  # Aqui desativamos o título do eixo y
+            y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Ano/Mês"), scale=alt.Scale(padding=20)),  # Aqui desativamos o título do eixo y
             x=alt.X('nr_ano_nr_mes_finalizacao:O', axis=alt.Axis(labelAngle=0, title='Ano/Mês'), title='Ano/Mês')  # Aqui desativamos o título do eixo x
         ).properties(
             width='container',
-            height=400
-        )
+            height=alt.Step(1 * len(volume_ano_mes_altair)),
+        ).interactive(bind_x='pan')
 
         # Adiciona rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
@@ -404,12 +405,13 @@ def app_interface():
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(volume_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Estado")),  # Desativar o título do eixo y
+            y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Estado"), scale=alt.Scale(padding=20)),  # Desativar o título do eixo y
             x=alt.X('uf:O', axis=alt.Axis(labelAngle=0, title='Estado'), title='Estado', sort='-y')  # Desativar o título do eixo x
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(volume_estado_altair)),
+        ).interactive(bind_x='pan')
+
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
             align='center',
@@ -423,64 +425,136 @@ def app_interface():
         st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
 
     # Volume de Atendimentos por Cidade
-    with st.expander("Volume de Atendimentos por Cidade", expanded=expander_state):
+    with st.expander("Volume de Atendimentos por Cidade"):
 
         # Título do gráfico
         st.subheader("Volume de Atendimentos por Cidade")
 
         # Agregar os dados para contar a quantidade de IDs por cidade
-        volume_estado_altair = df_atendimentos.groupby('cidade')['id'].nunique().reset_index(name='Contagem')
+        volume_cidade_altair = df_atendimentos.groupby('cidade')['id'].nunique().reset_index(name='Contagem')
+
+        # Ordenar os dados pelo valor do maior para o menor
+        volume_cidade_altair = volume_cidade_altair.sort_values(by='Contagem', ascending=False)
+
+        # Definir a altura do gráfico baseada no número de cidades
+        bar_height = 25
+        num_cidades = len(volume_cidade_altair)
+        chart_height = bar_height * num_cidades
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(volume_estado_altair).mark_bar().encode(
-            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos")),  # Título do eixo x
-            y=alt.Y('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), sort='-x')  # Título do eixo y e ordenação
+        chart = alt.Chart(volume_cidade_altair).mark_bar().encode(
+            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos"), scale=alt.Scale(padding=20)),
+            y=alt.Y('cidade:O', axis=alt.Axis(title='Cidade', labelAngle=0, labelFontSize=10), sort='-x')
         ).properties(
-            width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            width='container',
+            height=chart_height  # Definir a altura do gráfico baseada no número de cidades
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
             align='left',
             baseline='middle',
-            dx=3,  # Deslocamento horizontal
+            dx=3,
             color='white'
         ).encode(
             text='Contagem:Q'
         )
-        
-        st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
+
+        # Adicionar CSS para scrollbar vertical no container do gráfico, se necessário
+        if num_cidades * bar_height > 600:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    overflow-y: auto;
+                    max-height: 600px;  /* Altura máxima para permitir a rolagem */
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    height: auto;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Exibir o gráfico dentro de um container com a classe customizada
+        st.markdown('<div class="altair_chart_container">', unsafe_allow_html=True)
+        st.altair_chart(chart + text, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Volume de Atendimentos por Filial
     with st.expander("Volume de Atendimentos por Filial", expanded=expander_state):
 
-        # Titulo do gráfico
+        # Título do gráfico
         st.subheader("Volume de Atendimentos por Filial")
 
         # Agregar os dados para contar a quantidade de IDs por filial
         volume_filial_altair = df_atendimentos.groupby('filial')['id'].nunique().reset_index(name='Contagem')
 
+        # Ordenar os dados pelo valor do maior para o menor
+        volume_filial_altair = volume_filial_altair.sort_values(by='Contagem', ascending=False)
+
+        # Definir a altura do gráfico baseada no número de filiais
+        bar_height = 25
+        num_filiais = len(volume_filial_altair)
+        chart_height = bar_height * num_filiais
+
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(volume_filial_altair).mark_bar().encode(
-            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos")),  # Título do eixo x
-            y=alt.Y('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), sort='-x')  # Título do eixo y e ordenação
+            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos"), scale=alt.Scale(padding=20)),
+            y=alt.Y('filial:O', axis=alt.Axis(title='Filial', labelAngle=0, labelFontSize=12), sort='-x')
         ).properties(
-            width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            width='container',
+            height=chart_height  # Definir a altura do gráfico baseada no número de filiais
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
             align='left',
             baseline='middle',
-            dx=3,  # Deslocamento horizontal
+            dx=3,
             color='white'
         ).encode(
             text='Contagem:Q'
         )
 
-        st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
+        # Adicionar CSS para scrollbar vertical no container do gráfico, se necessário
+        if num_filiais * bar_height > 600:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    overflow-y: auto;
+                    max-height: 600px;  /* Altura máxima para permitir a rolagem */
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    height: auto;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Exibir o gráfico dentro de um container com a classe customizada
+        st.markdown('<div class="altair_chart_container">', unsafe_allow_html=True)
+        st.altair_chart(chart + text, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Volume de Atendimentos por Setor
     with st.expander("Volume de Atendimentos por Setor", expanded=expander_state):
@@ -489,16 +563,17 @@ def app_interface():
         st.subheader("Volume de Atendimentos por Setor")
 
         # Agregar os dados para contar a quantidade de IDs por setor
-        volume_estado_altair = df_atendimentos.groupby('setor')['id'].nunique().reset_index(name='Contagem')
+        volume_setor_altair = df_atendimentos.groupby('setor')['id'].nunique().reset_index(name='Contagem')
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(volume_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Setor")),  # Desativar o título do eixo y
+        chart = alt.Chart(volume_setor_altair).mark_bar().encode(
+            y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Setor"), scale=alt.Scale(padding=20)),  # Desativar o título do eixo y
             x=alt.X('setor:O', axis=alt.Axis(title='Setor', labelAngle=0, labelFontSize=10), title='Setor', sort='-y')  # Adicionar um título para o eixo x e ajustar o ângulo e o tamanho da fonte dos rótulos
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(volume_setor_altair)),
+        ).interactive(bind_x='pan')
+
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
             align='center',
@@ -514,7 +589,7 @@ def app_interface():
     # Volume de Atendimentos por Colaborador
     with st.expander("Volume de Atendimentos por Colaborador"):
 
-        # Titulo do gráfico
+        # Título do gráfico
         st.subheader("Volume de Atendimentos por Colaborador")
 
         # Extrair o primeiro nome de cada colaborador
@@ -526,61 +601,113 @@ def app_interface():
         # Ordenar os dados pelo valor do maior para o menor
         volume_colaborador_altair = volume_colaborador_altair.sort_values(by='Contagem', ascending=False)
 
+        # Definir a altura do gráfico baseada no número de colaboradores
+        bar_height = 25
+        num_colaboradores = len(volume_colaborador_altair)
+        chart_height = bar_height * num_colaboradores
+
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(volume_colaborador_altair).mark_bar().encode(
-            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos"), scale=alt.Scale(zero=False)),  # Título do eixo x
-            y=alt.Y('primeiro_nome:O', axis=alt.Axis(title='Colaborador', labelAngle=0, labelFontSize=10), title='Colaborador', sort='-x'),  # Adicionar um título para o eixo y, ajustar o ângulo e o tamanho da fonte dos rótulos, e especificar a ordenação            
+            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos"), scale=alt.Scale(padding=20)),
+            y=alt.Y('primeiro_nome:O', axis=alt.Axis(title='Colaborador', labelAngle=0, labelFontSize=12), title='Colaborador', sort='-x')
         ).properties(
-            width='container',  # Ajustar a largura do gráfico
-            height=alt.Step(1 * len(volume_colaborador_altair)),
+            width='container',
+            height=chart_height  # Definir a altura do gráfico baseada no número de colaboradores
         ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='left',  # Alinhar o texto à esquerda
+            align='left',
             baseline='middle',
-            dx=3,  # Deslocamento horizontal
-            color='white'  # Cor preta para o texto
+            dx=3,
+            color='white'
         ).encode(
-            text='Contagem:Q',
-            x=alt.X('Contagem:Q', stack='zero'),  # Definir a posição dos rótulos de texto
+            text='Contagem:Q'
         )
 
-        st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
+        # Adicionar CSS para scrollbar vertical no container do gráfico
+        st.markdown(
+            """
+            <style>
+            .altair_chart_container {
+                overflow-y: auto;
+                max-height: 600px;  /* Altura máxima para permitir a rolagem */
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # Exibir o gráfico dentro de um container com a classe customizada
+        st.markdown('<div class="altair_chart_container">', unsafe_allow_html=True)
+        st.altair_chart(chart + text, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Volume de Atendimentos por Assunto
     with st.expander("Volume de Atendimentos por Assunto", expanded=expander_state):
 
-        # Titulo do gráfico
+        # Título do gráfico
         st.subheader("Volume de Atendimentos por Assunto")
 
         # Agregar os dados para contar a quantidade de IDs por assunto
-        volume_estado_altair = df_atendimentos.groupby('assunto')['id'].nunique().reset_index(name='Contagem')
+        volume_assunto_altair = df_atendimentos.groupby('assunto')['id'].nunique().reset_index(name='Contagem')
 
         # Ordenar os dados pelo valor do maior para o menor
-        volume_estado_altair = volume_estado_altair.sort_values(by='Contagem', ascending=False)
+        volume_assunto_altair = volume_assunto_altair.sort_values(by='Contagem', ascending=False)
+
+        # Definir a altura do gráfico baseada no número de assuntos
+        bar_height = 25
+        num_assuntos = len(volume_assunto_altair)
+        chart_height = bar_height * num_assuntos
 
         # Criar o gráfico usando Altair com barras verticais
-        chart = alt.Chart(volume_estado_altair).mark_bar().encode(
-            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Assunto")),  # Desativar o título do eixo x
-            y=alt.Y('assunto:O', axis=alt.Axis(title='Assunto', labelAngle=0, labelFontSize=10), title='Assunto', sort='-x')  # Adicionar um título para o eixo y e ajustar o ângulo e o tamanho da fonte dos rótulos
+        chart = alt.Chart(volume_assunto_altair).mark_bar().encode(
+            x=alt.X('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos"), scale=alt.Scale(padding=20)),
+            y=alt.Y('assunto:O', axis=alt.Axis(title='Assunto', labelAngle=0, labelFontSize=10), sort='-x')
         ).properties(
-            width='container',  # Ajustar a largura do gráfico
-            height= alt.Step(1 * len(volume_colaborador_altair)),
+            width='container',
+            height=chart_height  # Definir a altura do gráfico baseada no número de assuntos
         ).interactive(bind_y='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
             align='left',
             baseline='middle',
-            dx=3,  # Deslocamento horizontal
-            color='white'  # Cor branca para o texto
+            dx=3,
+            color='white'
         ).encode(
             text='Contagem:Q'
-            
         )
 
-        st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
+        # Adicionar CSS para scrollbar vertical no container do gráfico, se necessário
+        if num_assuntos * bar_height > 600:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    overflow-y: auto;
+                    max-height: 600px;  /* Altura máxima para permitir a rolagem */
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    height: auto;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Exibir o gráfico dentro de um container com a classe customizada
+        st.markdown('<div class="altair_chart_container">', unsafe_allow_html=True)
+        st.altair_chart(chart + text, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Volume de Atendimentos por Tipo Atendimento
     with st.expander("Volume de Atendimentos por Tipo Atendimento", expanded=expander_state):
@@ -589,16 +716,17 @@ def app_interface():
         st.subheader("Volume de Atendimentos por Tipo Atendimento")
 
         # Agregar os dados para contar a quantidade de IDs por tipo de atendimento
-        volume_estado_altair = df_atendimentos.groupby('tipo_atendimento')['id'].nunique().reset_index(name='Contagem')
+        volume_tipo_atendimento_altair = df_atendimentos.groupby('tipo_atendimento')['id'].nunique().reset_index(name='Contagem')
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(volume_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Tipo Atendimento")),  # Desativar o título do eixo y
+        chart = alt.Chart(volume_tipo_atendimento_altair).mark_bar().encode(
+            y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Tipo Atendimento"), scale=alt.Scale(padding=20)),  # Desativar o título do eixo y
             x=alt.X('tipo_atendimento:O', axis=alt.Axis(title='Tipo Atendimento', labelAngle=0, labelFontSize=10), title='Tipo Atendimento', sort='-y')  # Adicionar um título para o eixo x e ajustar o ângulo e o tamanho da fonte dos rótulos
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height= alt.Step(1 * len(volume_tipo_atendimento_altair)),
+        ).interactive(bind_y='pan')
+
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
             align='center',
@@ -618,16 +746,17 @@ def app_interface():
         st.subheader("Volume de Atendimentos por Prioridade")
 
         # Agregar os dados para contar a quantidade de IDs por prioridade
-        volume_estado_altair = df_atendimentos.groupby('prioridade')['id'].nunique().reset_index(name='Contagem')
+        volume_prioridade_altair = df_atendimentos.groupby('prioridade')['id'].nunique().reset_index(name='Contagem')
 
         # Criar o gráfico usando Altair com barras horizontais
-        chart = alt.Chart(volume_estado_altair).mark_bar().encode(
-            y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Prioridade")),  # Desativar o título do eixo y
+        chart = alt.Chart(volume_prioridade_altair).mark_bar().encode(
+            y=alt.Y('Contagem:Q', axis=alt.Axis(title="Volume de Atendimentos por Prioridade"), scale=alt.Scale(padding=20)),  # Desativar o título do eixo y
             x=alt.X('prioridade:O', axis=alt.Axis(title='Prioridade', labelAngle=0, labelFontSize=10), title='Prioridade', sort='-y')  # Adicionar um título para o eixo x e ajustar o ângulo e o tamanho da fonte dos rótulos
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height= alt.Step(1 * len(volume_prioridade_altair)),
+        ).interactive(bind_y='pan')
+
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
             align='center',
@@ -659,12 +788,12 @@ def app_interface():
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(sla_ano_mes_altair).mark_bar().encode(
-            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title="Análise de SLA dos Atendimentos", format='.2%')),  # Porcentagem no eixo y
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title="Análise de SLA dos Atendimentos", format='.2%'), scale=alt.Scale(padding=20)),  # Porcentagem no eixo y
             x=alt.X('nr_ano_nr_mes_finalizacao:O', axis=alt.Axis(labelAngle=0, title='Ano/Mês'), title='Ano/Mês')  # Título do eixo x
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height= alt.Step(1 * len(sla_ano_mes_altair)),
+        ).interactive(bind_y='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
@@ -689,12 +818,12 @@ def app_interface():
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(sla_estado_altair).mark_bar().encode(
-            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Estado", format='.2%')),  # Porcentagem no eixo y
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Estado", format='.2%'), scale=alt.Scale(padding=20)),  # Porcentagem no eixo y
             x=alt.X('uf:O', axis=alt.Axis(labelAngle=0, title='Estado'), title='Estado', sort='-y')  # Título do eixo x
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height= alt.Step(1 * len(sla_estado_altair)),
+        ).interactive(bind_y='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
@@ -703,55 +832,139 @@ def app_interface():
 
         st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
 
+    # SLA de Atendimentos por Cidade
     with st.expander("SLA de Atendimentos por Cidade", expanded=expander_state):
 
-        # Título do gráfico        
+        # Título do gráfico
         st.subheader("SLA de Atendimentos por Cidade")
 
         # Calcular a média do percentual de SLA por Cidade
         sla_cidade_altair = df_atendimentos.groupby('cidade')['sla'].mean().reset_index(name='Média SLA (%)')
         sla_cidade_altair['Média SLA (%)'] = sla_cidade_altair['Média SLA (%)'] / 100
 
+        # Ordenar os dados pelo valor do maior para o menor
+        sla_cidade_altair = sla_cidade_altair.sort_values(by='Média SLA (%)', ascending=False)
+
+        # Definir a altura do gráfico baseada no número de cidades
+        bar_height = 25
+        num_cidades = len(sla_cidade_altair)
+        chart_height = bar_height * num_cidades
+
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(sla_cidade_altair).mark_bar().encode(
-            x=alt.X('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Cidade", format='.2%')),  # Porcentagem no eixo x
-            y=alt.Y('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), title='Cidade', sort='-x')  # Título do eixo y
+            x=alt.X('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos", format='.2%'), scale=alt.Scale(padding=20)),
+            y=alt.Y('cidade:O', axis=alt.Axis(title='Cidade', labelAngle=0, labelFontSize=10), sort='-x')
         ).properties(
-            width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            width='container',
+            height=chart_height  # Definir a altura do gráfico baseada no número de cidades
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='left', baseline='middle', dx=3, color='white'
-        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
+            align='left',
+            baseline='middle',
+            dx=3,
+            color='white'
+        ).encode(
+            text=alt.Text('Média SLA (%):Q', format='.2%')
+        )
 
-        st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
+        # Adicionar CSS para scrollbar vertical no container do gráfico, se necessário
+        if num_cidades * bar_height > 600:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    overflow-y: auto;
+                    max-height: 600px;  /* Altura máxima para permitir a rolagem */
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    height: auto;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
 
+        # Exibir o gráfico dentro de um container com a classe customizada
+        st.markdown('<div class="altair_chart_container">', unsafe_allow_html=True)
+        st.altair_chart(chart + text, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # SLA de Atendimentos por Filial
     with st.expander("SLA de Atendimentos por Filial", expanded=expander_state):
 
-        # Título do gráfico        
+        # Título do gráfico
         st.subheader("SLA de Atendimentos por Filial")
 
         # Calcular a média do percentual de SLA por Filial
         sla_filial_altair = df_atendimentos.groupby('filial')['sla'].mean().reset_index(name='Média SLA (%)')
         sla_filial_altair['Média SLA (%)'] = sla_filial_altair['Média SLA (%)'] / 100
 
+        # Ordenar os dados pelo valor do maior para o menor
+        sla_filial_altair = sla_filial_altair.sort_values(by='Média SLA (%)', ascending=False)
+
+        # Definir a altura do gráfico baseada no número de filiais
+        bar_height = 25
+        num_filiais = len(sla_filial_altair)
+        chart_height = bar_height * num_filiais
+
         # Criar o gráfico usando Altair com barras verticais
         chart = alt.Chart(sla_filial_altair).mark_bar().encode(
-            x=alt.X('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Filial", format='.2%')),  # Porcentagem no eixo x
-            y=alt.Y('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), title='Filial', sort='-x')  # Título do eixo y
+            x=alt.X('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos", format='.2%'), scale=alt.Scale(padding=20)),
+            y=alt.Y('filial:O', axis=alt.Axis(title='Filial', labelAngle=0, labelFontSize=12), sort='-x')
         ).properties(
-            width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            width='container',
+            height=chart_height  # Definir a altura do gráfico baseada no número de filiais
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='left', baseline='middle', dx=3, color='white'
-        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
+            align='left',
+            baseline='middle',
+            dx=3,
+            color='white'
+        ).encode(
+            text=alt.Text('Média SLA (%):Q', format='.2%')
+        )
 
-        st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
+        # Adicionar CSS para scrollbar vertical no container do gráfico, se necessário
+        if num_filiais * bar_height > 600:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    overflow-y: auto;
+                    max-height: 600px;  /* Altura máxima para permitir a rolagem */
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    height: auto;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Exibir o gráfico dentro de um container com a classe customizada
+        st.markdown('<div class="altair_chart_container">', unsafe_allow_html=True)
+        st.altair_chart(chart + text, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with st.expander("SLA de Atendimentos por Setor", expanded=expander_state):
 
@@ -764,12 +977,12 @@ def app_interface():
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(sla_setor_altair).mark_bar().encode(
-            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Setor", format='.2%')),  # Porcentagem no eixo y
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Setor", format='.2%'), scale=alt.Scale(padding=20)),  # Porcentagem no eixo y
             x=alt.X('setor:O', axis=alt.Axis(labelAngle=0, title='Setor', labelFontSize=10), title='Setor', sort='-y')  # Título do eixo x
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(sla_setor_altair)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
@@ -778,9 +991,10 @@ def app_interface():
 
         st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
 
+    # SLA de Atendimentos por Colaborador
     with st.expander("SLA de Atendimentos por Colaborador", expanded=expander_state):
 
-        # Título do gráfico        
+        # Título do gráfico
         st.subheader("SLA de Atendimentos por Colaborador")
 
         # Extrair o primeiro nome de cada colaborador
@@ -790,46 +1004,129 @@ def app_interface():
         sla_colaborador_altair = df_atendimentos.groupby('primeiro_nome')['sla'].mean().reset_index(name='Média SLA (%)')
         sla_colaborador_altair['Média SLA (%)'] = sla_colaborador_altair['Média SLA (%)'] / 100
 
+        # Ordenar os dados pelo valor do maior para o menor
+        sla_colaborador_altair = sla_colaborador_altair.sort_values(by='Média SLA (%)', ascending=False)
+
+        # Definir a altura do gráfico baseada no número de colaboradores
+        bar_height = 25
+        num_colaboradores = len(sla_colaborador_altair)
+        chart_height = bar_height * num_colaboradores
+
         # Criar o gráfico usando Altair com barras verticais
         chart = alt.Chart(sla_colaborador_altair).mark_bar().encode(
-            x=alt.X('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Colaborador", format='.2%')),  # Porcentagem no eixo x
-            y=alt.Y('primeiro_nome:O', axis=alt.Axis(labelAngle=0, title='Colaborador', labelFontSize=10), title='Colaborador', sort='-x')  # Título do eixo y
+            x=alt.X('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos", format='.2%'), scale=alt.Scale(padding=20)),
+            y=alt.Y('primeiro_nome:O', axis=alt.Axis(title='Colaborador', labelAngle=0, labelFontSize=12), sort='-x')
         ).properties(
-            width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            width='container',
+            height=chart_height  # Definir a altura do gráfico baseada no número de colaboradores
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='left', baseline='middle', dx=3, color='white'
-        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
+            align='left',
+            baseline='middle',
+            dx=3,
+            color='white'
+        ).encode(
+            text=alt.Text('Média SLA (%):Q', format='.2%')
+        )
 
-        st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
+        # Adicionar CSS para scrollbar vertical no container do gráfico, se necessário
+        if num_colaboradores * bar_height > 600:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    overflow-y: auto;
+                    max-height: 600px;  /* Altura máxima para permitir a rolagem */
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    height: auto;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
 
+        # Exibir o gráfico dentro de um container com a classe customizada
+        st.markdown('<div class="altair_chart_container">', unsafe_allow_html=True)
+        st.altair_chart(chart + text, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # SLA de Atendimentos por Assunto
     with st.expander("SLA de Atendimentos por Assunto", expanded=expander_state):
 
-        # Título do gráfico        
+        # Título do gráfico
         st.subheader("SLA de Atendimentos por Assunto")
 
         # Calcular a média do percentual de SLA por Assunto
         sla_assunto_altair = df_atendimentos.groupby('assunto')['sla'].mean().reset_index(name='Média SLA (%)')
         sla_assunto_altair['Média SLA (%)'] = sla_assunto_altair['Média SLA (%)'] / 100
 
+        # Ordenar os dados pelo valor do maior para o menor
+        sla_assunto_altair = sla_assunto_altair.sort_values(by='Média SLA (%)', ascending=False)
+
+        # Definir a altura do gráfico baseada no número de assuntos
+        bar_height = 25
+        num_assuntos = len(sla_assunto_altair)
+        chart_height = bar_height * num_assuntos
+
         # Criar o gráfico usando Altair com barras verticais
         chart = alt.Chart(sla_assunto_altair).mark_bar().encode(
-            x=alt.X('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Assunto", format='.2%')),  # Porcentagem no eixo x
-            y=alt.Y('assunto:O', axis=alt.Axis(labelAngle=0, title='Assunto', labelFontSize=10), title='Assunto', sort='-x')  # Título do eixo y
+            x=alt.X('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos", format='.2%'), scale=alt.Scale(padding=20)),
+            y=alt.Y('assunto:O', axis=alt.Axis(title='Assunto', labelAngle=0, labelFontSize=12), sort='-x')
         ).properties(
-            width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            width='container',
+            height=chart_height  # Definir a altura do gráfico baseada no número de assuntos
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
-            align='left', baseline='middle', dx=3, color='white'
-        ).encode(text=alt.Text('Média SLA (%):Q', format='.2%'))
+            align='left',
+            baseline='middle',
+            dx=3,
+            color='white'
+        ).encode(
+            text=alt.Text('Média SLA (%):Q', format='.2%')
+        )
 
-        st.altair_chart(chart + text, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
+        # Adicionar CSS para scrollbar vertical no container do gráfico, se necessário
+        if num_assuntos * bar_height > 600:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    overflow-y: auto;
+                    max-height: 600px;  /* Altura máxima para permitir a rolagem */
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    height: auto;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Exibir o gráfico dentro de um container com a classe customizada
+        st.markdown('<div class="altair_chart_container">', unsafe_allow_html=True)
+        st.altair_chart(chart + text, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with st.expander("SLA de Atendimentos por Tipo Atendimento", expanded=expander_state):
 
@@ -842,12 +1139,12 @@ def app_interface():
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(sla_tipo_atendimento_altair).mark_bar().encode(
-            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Tipo Atendimento", format='.2%')),  # Porcentagem no eixo y
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Tipo Atendimento", format='.2%'), scale=alt.Scale(padding=20)),  # Porcentagem no eixo y
             x=alt.X('tipo_atendimento:O', axis=alt.Axis(labelAngle=0, title='Tipo Atendimento', labelFontSize=10), title='Tipo Atendimento', sort='-y')  # Título do eixo x
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(sla_tipo_atendimento_altair)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
@@ -867,12 +1164,12 @@ def app_interface():
 
         # Criar o gráfico usando Altair com barras horizontais
         chart = alt.Chart(sla_prioridade_altair).mark_bar().encode(
-            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Prioridade", format='.2%')),  # Porcentagem no eixo y
+            y=alt.Y('Média SLA (%):Q', axis=alt.Axis(title="SLA de Atendimentos por Prioridade", format='.2%'), scale=alt.Scale(padding=20)),  # Porcentagem no eixo y
             x=alt.X('prioridade:O', axis=alt.Axis(labelAngle=0, title='Prioridade', labelFontSize=10), title='Prioridade', sort='-y')  # Título do eixo x
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(sla_prioridade_altair)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text = chart.mark_text(
@@ -922,12 +1219,12 @@ def app_interface():
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por ano/mês
         chart_tempo_medio = alt.Chart(tempo_medio_ano_mes).mark_bar().encode(
-            y=alt.Y('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo y com tempo médio de atendimento em horas
+            y=alt.Y('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)'), scale=alt.Scale(padding=20)),  # Eixo y com tempo médio de atendimento em horas
             x=alt.X('nr_ano_nr_mes_finalizacao:O', axis=alt.Axis(labelAngle=0, title='Ano/Mês'), title='Ano/Mês'),  # Eixo x com Ano/Mês                
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(tempo_medio_ano_mes)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text_tempo_medio = chart_tempo_medio.mark_text(
@@ -945,21 +1242,21 @@ def app_interface():
     with st.expander("Tempo Médio de Atendimento por Estado", expanded=expander_state):
 
         # Agregar os dados para calcular o tempo médio de atendimento por Estado
-        tempo_medio_ano_mes = df_atendimentos.groupby('uf')['tempo_atendimento'].mean().reset_index()
-        tempo_medio_ano_mes['tempo_atendimento_hms'] = tempo_medio_ano_mes['tempo_atendimento'].apply(segundos_para_hms)
-        tempo_medio_ano_mes['tempo_atendimento_horas'] = tempo_medio_ano_mes['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
+        tempo_medio_estado = df_atendimentos.groupby('uf')['tempo_atendimento'].mean().reset_index()
+        tempo_medio_estado['tempo_atendimento_hms'] = tempo_medio_estado['tempo_atendimento'].apply(segundos_para_hms)
+        tempo_medio_estado['tempo_atendimento_horas'] = tempo_medio_estado['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
 
         # Título do gráfico
         st.subheader("Tempo Médio de Atendimento por Estado")
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por Estado
-        chart_tempo_medio = alt.Chart(tempo_medio_ano_mes).mark_bar().encode(
-            y=alt.Y('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo y com tempo médio de atendimento em horas
+        chart_tempo_medio = alt.Chart(tempo_medio_estado).mark_bar().encode(
+            y=alt.Y('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)'), scale=alt.Scale(padding=20)),  # Eixo y com tempo médio de atendimento em horas
             x=alt.X('uf:O', axis=alt.Axis(labelAngle=0, title='Estado'), title='Estado', sort='-y'),  # Eixo x com Ano/Mês                
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(tempo_medio_estado)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text_tempo_medio = chart_tempo_medio.mark_text(
@@ -977,21 +1274,29 @@ def app_interface():
     with st.expander("Tempo Médio de Atendimento por Cidade", expanded=expander_state):
 
         # Agregar os dados para calcular o tempo médio de atendimento por Cidade
-        tempo_medio_ano_mes = df_atendimentos.groupby('cidade')['tempo_atendimento'].mean().reset_index()
-        tempo_medio_ano_mes['tempo_atendimento_hms'] = tempo_medio_ano_mes['tempo_atendimento'].apply(segundos_para_hms)
-        tempo_medio_ano_mes['tempo_atendimento_horas'] = tempo_medio_ano_mes['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
+        tempo_medio_cidade = df_atendimentos.groupby('cidade')['tempo_atendimento'].mean().reset_index()
+        tempo_medio_cidade['tempo_atendimento_hms'] = tempo_medio_cidade['tempo_atendimento'].apply(segundos_para_hms)
+        tempo_medio_cidade['tempo_atendimento_horas'] = tempo_medio_cidade['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
+
+        # Ordenar os dados pelo tempo médio de atendimento em horas
+        tempo_medio_cidade = tempo_medio_cidade.sort_values(by='tempo_atendimento_horas', ascending=False)
+
+        # Definir a altura do gráfico baseada no número de cidades
+        bar_height = 25
+        num_cidades = len(tempo_medio_cidade)
+        chart_height = bar_height * num_cidades
 
         # Título do gráfico
         st.subheader("Tempo Médio de Atendimento por Cidade")
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por Cidade
-        chart_tempo_medio = alt.Chart(tempo_medio_ano_mes).mark_bar().encode(
-            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo x com tempo médio de atendimento em horas
-            y=alt.Y('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade'), title='Cidade', sort='-x'),  # Eixo y com Cidade
+        chart_tempo_medio = alt.Chart(tempo_medio_cidade).mark_bar().encode(
+            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)', format='.2f'), scale=alt.Scale(padding=20)),  # Eixo x com tempo médio de atendimento em horas
+            y=alt.Y('cidade:O', axis=alt.Axis(labelAngle=0, title='Cidade', labelFontSize=10), title='Cidade', sort='-x'),  # Eixo y com Cidade
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=chart_height,  # Ajustar a altura do gráfico conforme o número de cidades
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text_tempo_medio = chart_tempo_medio.mark_text(
@@ -1000,30 +1305,58 @@ def app_interface():
             dx=3,  # Deslocamento horizontal
             color='white'  # Cor branca para o texto
         ).encode(
-            text='tempo_atendimento_hms:N'  # Mostrar o tempo médio de atendimento formatado
+            text=alt.Text('tempo_atendimento_hms:N')  # Mostrar o tempo médio de atendimento formatado
         )
 
-        st.altair_chart(chart_tempo_medio + text_tempo_medio, use_container_width=True)  # Ajustar a largura do gráfico para ocupar todo o contêiner
+        # Adicionar CSS para scrollbar vertical no container do gráfico, se necessário
+        if len(tempo_medio_cidade) * bar_height > 600:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    overflow-y: auto;
+                    max-height: 600px;  /* Altura máxima para permitir a rolagem */
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <style>
+                .altair_chart_container {
+                    height: auto;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Exibir o gráfico dentro de um container com a classe customizada
+        st.markdown('<div class="altair_chart_container">', unsafe_allow_html=True)
+        st.altair_chart(chart_tempo_medio + text_tempo_medio, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Adicionando uma área de expansão para o Tempo Médio de Atendimento por Filial
     with st.expander("Tempo Médio de Atendimento por Filial", expanded=expander_state):
 
         # Agregar os dados para calcular o tempo médio de atendimento por Filial
-        tempo_medio_ano_mes = df_atendimentos.groupby('filial')['tempo_atendimento'].mean().reset_index()
-        tempo_medio_ano_mes['tempo_atendimento_hms'] = tempo_medio_ano_mes['tempo_atendimento'].apply(segundos_para_hms)
-        tempo_medio_ano_mes['tempo_atendimento_horas'] = tempo_medio_ano_mes['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
+        tempo_medio_filial = df_atendimentos.groupby('filial')['tempo_atendimento'].mean().reset_index()
+        tempo_medio_filial['tempo_atendimento_hms'] = tempo_medio_filial['tempo_atendimento'].apply(segundos_para_hms)
+        tempo_medio_filial['tempo_atendimento_horas'] = tempo_medio_filial['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
 
         # Título do gráfico
         st.subheader("Tempo Médio de Atendimento por Filial")
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por Filial
-        chart_tempo_medio = alt.Chart(tempo_medio_ano_mes).mark_bar().encode(
-            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo x com tempo médio de atendimento em horas
+        chart_tempo_medio = alt.Chart(tempo_medio_filial).mark_bar().encode(
+            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)'), scale=alt.Scale(padding=20)),  # Eixo x com tempo médio de atendimento em horas
             y=alt.Y('filial:O', axis=alt.Axis(labelAngle=0, title='Filial'), title='Filial', sort='-x'),  # Eixo y com Filial                
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(tempo_medio_filial)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text_tempo_medio = chart_tempo_medio.mark_text(
@@ -1041,21 +1374,21 @@ def app_interface():
     with st.expander("Tempo Médio de Atendimento por Setor", expanded=expander_state):
 
         # Agregar os dados para calcular o tempo médio de atendimento por Setor
-        tempo_medio_ano_mes = df_atendimentos.groupby('setor')['tempo_atendimento'].mean().reset_index()
-        tempo_medio_ano_mes['tempo_atendimento_hms'] = tempo_medio_ano_mes['tempo_atendimento'].apply(segundos_para_hms)
-        tempo_medio_ano_mes['tempo_atendimento_horas'] = tempo_medio_ano_mes['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
+        tempo_medio_setor = df_atendimentos.groupby('setor')['tempo_atendimento'].mean().reset_index()
+        tempo_medio_setor['tempo_atendimento_hms'] = tempo_medio_setor['tempo_atendimento'].apply(segundos_para_hms)
+        tempo_medio_setor['tempo_atendimento_horas'] = tempo_medio_setor['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
 
         # Título do gráfico
         st.subheader("Tempo Médio de Atendimento por Setor")
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por Setor
-        chart_tempo_medio = alt.Chart(tempo_medio_ano_mes).mark_bar().encode(
-            y=alt.Y('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo y com tempo médio de atendimento em horas
+        chart_tempo_medio = alt.Chart(tempo_medio_setor).mark_bar().encode(
+            y=alt.Y('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)'), scale=alt.Scale(padding=20)),  # Eixo y com tempo médio de atendimento em horas
             x=alt.X('setor:O', axis=alt.Axis(labelAngle=0, title='Setor'), title='Setor', sort='-y'),  # Eixo x com Ano/Mês                
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(tempo_medio_setor)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text_tempo_medio = chart_tempo_medio.mark_text(
@@ -1073,21 +1406,21 @@ def app_interface():
     with st.expander("Tempo Médio de Atendimento por Colaborador", expanded=expander_state):
 
         # Agregar os dados para calcular o tempo médio de atendimento por Colaborador
-        tempo_medio_ano_mes = df_atendimentos.groupby('colaborador')['tempo_atendimento'].mean().reset_index()
-        tempo_medio_ano_mes['tempo_atendimento_hms'] = tempo_medio_ano_mes['tempo_atendimento'].apply(segundos_para_hms)
-        tempo_medio_ano_mes['tempo_atendimento_horas'] = tempo_medio_ano_mes['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
+        tempo_medio_colaborador = df_atendimentos.groupby('colaborador')['tempo_atendimento'].mean().reset_index()
+        tempo_medio_colaborador['tempo_atendimento_hms'] = tempo_medio_colaborador['tempo_atendimento'].apply(segundos_para_hms)
+        tempo_medio_colaborador['tempo_atendimento_horas'] = tempo_medio_colaborador['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
 
         # Título do gráfico
         st.subheader("Tempo Médio de Atendimento por Colaborador")
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por Colaborador
-        chart_tempo_medio = alt.Chart(tempo_medio_ano_mes).mark_bar().encode(
-            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo x com tempo médio de atendimento em horas
+        chart_tempo_medio = alt.Chart(tempo_medio_colaborador).mark_bar().encode(
+            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)'), scale=alt.Scale(padding=20)),  # Eixo x com tempo médio de atendimento em horas
             y=alt.Y('colaborador:O', axis=alt.Axis(labelAngle=0, title='Colaborador'), title='Colaborador', sort='-x'),  # Eixo y com Colaborador                
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(tempo_medio_colaborador)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text_tempo_medio = chart_tempo_medio.mark_text(
@@ -1105,21 +1438,21 @@ def app_interface():
     with st.expander("Tempo Médio de Atendimento por Assunto", expanded=expander_state):
 
         # Agregar os dados para calcular o tempo médio de atendimento por Assunto
-        tempo_medio_ano_mes = df_atendimentos.groupby('assunto')['tempo_atendimento'].mean().reset_index()
-        tempo_medio_ano_mes['tempo_atendimento_hms'] = tempo_medio_ano_mes['tempo_atendimento'].apply(segundos_para_hms)
-        tempo_medio_ano_mes['tempo_atendimento_horas'] = tempo_medio_ano_mes['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
+        tempo_medio_assunto = df_atendimentos.groupby('assunto')['tempo_atendimento'].mean().reset_index()
+        tempo_medio_assunto['tempo_atendimento_hms'] = tempo_medio_assunto['tempo_atendimento'].apply(segundos_para_hms)
+        tempo_medio_assunto['tempo_atendimento_horas'] = tempo_medio_assunto['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
 
         # Título do gráfico
         st.subheader("Tempo Médio de Atendimento por Assunto")
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por Assunto
-        chart_tempo_medio = alt.Chart(tempo_medio_ano_mes).mark_bar().encode(
-            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo x com tempo médio de atendimento em horas
+        chart_tempo_medio = alt.Chart(tempo_medio_assunto).mark_bar().encode(
+            x=alt.X('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)'), scale=alt.Scale(padding=20)),  # Eixo x com tempo médio de atendimento em horas
             y=alt.Y('assunto:O', axis=alt.Axis(labelAngle=0, title='Assunto'), title='Assunto', sort='-x'),  # Eixo y com Assunto                
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(tempo_medio_assunto)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text_tempo_medio = chart_tempo_medio.mark_text(
@@ -1137,21 +1470,21 @@ def app_interface():
     with st.expander("Tempo Médio de Atendimento por Tipo Atendimento", expanded=expander_state):
 
         # Agregar os dados para calcular o tempo médio de atendimento por Tipo Atendimento
-        tempo_medio_ano_mes = df_atendimentos.groupby('tipo_atendimento')['tempo_atendimento'].mean().reset_index()
-        tempo_medio_ano_mes['tempo_atendimento_hms'] = tempo_medio_ano_mes['tempo_atendimento'].apply(segundos_para_hms)
-        tempo_medio_ano_mes['tempo_atendimento_horas'] = tempo_medio_ano_mes['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
+        tempo_medio_tipo_atendimento = df_atendimentos.groupby('tipo_atendimento')['tempo_atendimento'].mean().reset_index()
+        tempo_medio_tipo_atendimento['tempo_atendimento_hms'] = tempo_medio_tipo_atendimento['tempo_atendimento'].apply(segundos_para_hms)
+        tempo_medio_tipo_atendimento['tempo_atendimento_horas'] = tempo_medio_tipo_atendimento['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
 
         # Título do gráfico
         st.subheader("Tempo Médio de Atendimento por Tipo Atendimento")
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por Tipo Atendimento
-        chart_tempo_medio = alt.Chart(tempo_medio_ano_mes).mark_bar().encode(
-            y=alt.Y('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo y com tempo médio de atendimento em horas
+        chart_tempo_medio = alt.Chart(tempo_medio_tipo_atendimento).mark_bar().encode(
+            y=alt.Y('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)'), scale=alt.Scale(padding=20)),  # Eixo y com tempo médio de atendimento em horas
             x=alt.X('tipo_atendimento:O', axis=alt.Axis(labelAngle=0, title='Tipo Atendimento'), title='Tipo Atendimento', sort='-y'),  # Eixo x com Ano/Mês                
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(tempo_medio_tipo_atendimento)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text_tempo_medio = chart_tempo_medio.mark_text(
@@ -1169,21 +1502,21 @@ def app_interface():
     with st.expander("Tempo Médio de Atendimento por Prioridade", expanded=expander_state):
 
         # Agregar os dados para calcular o tempo médio de atendimento por Prioridade
-        tempo_medio_ano_mes = df_atendimentos.groupby('prioridade')['tempo_atendimento'].mean().reset_index()
-        tempo_medio_ano_mes['tempo_atendimento_hms'] = tempo_medio_ano_mes['tempo_atendimento'].apply(segundos_para_hms)
-        tempo_medio_ano_mes['tempo_atendimento_horas'] = tempo_medio_ano_mes['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
+        tempo_medio_prioridade = df_atendimentos.groupby('prioridade')['tempo_atendimento'].mean().reset_index()
+        tempo_medio_prioridade['tempo_atendimento_hms'] = tempo_medio_prioridade['tempo_atendimento'].apply(segundos_para_hms)
+        tempo_medio_prioridade['tempo_atendimento_horas'] = tempo_medio_prioridade['tempo_atendimento'] / 3600  # Converter segundos para horas para a escala Y
 
         # Título do gráfico
         st.subheader("Tempo Médio de Atendimento por Prioridade")
 
         # Criar o gráfico usando Altair para mostrar o tempo médio de atendimento por Prioridade
-        chart_tempo_medio = alt.Chart(tempo_medio_ano_mes).mark_bar().encode(
-            y=alt.Y('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)')),  # Eixo y com tempo médio de atendimento em horas
+        chart_tempo_medio = alt.Chart(tempo_medio_prioridade).mark_bar().encode(
+            y=alt.Y('tempo_atendimento_horas:Q', axis=alt.Axis(title='Tempo Médio de Atendimento (horas)'), scale=alt.Scale(padding=20)),  # Eixo y com tempo médio de atendimento em horas
             x=alt.X('prioridade:O', axis=alt.Axis(labelAngle=0, title='Prioridade'), title='Prioridade', sort='-y'),  # Eixo x com Ano/Mês                
         ).properties(
             width='container',  # Ajustar a largura do gráfico
-            height=400
-        )
+            height=alt.Step(1 * len(tempo_medio_prioridade)),
+        ).interactive(bind_x='pan')
 
         # Adicionar rótulos de valores no topo das barras com cor branca
         text_tempo_medio = chart_tempo_medio.mark_text(
