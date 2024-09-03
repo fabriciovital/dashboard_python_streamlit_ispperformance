@@ -9,7 +9,7 @@ def get_connection():
         host="127.0.0.1",
         database="postgres",
         user="fabricio",
-        password="kr8c4s%w"
+        password="batatinhafrita123"
     )
     return conn
 
